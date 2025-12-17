@@ -41,6 +41,42 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     const [videoTrackState, setVideoTrackState] = useState<Record<number, { muted: boolean, hidden: boolean }>>({});
     const [audioTrackState, setAudioTrackState] = useState<Record<number, { muted: boolean, hidden: boolean }>>({});
 
+    // History State for Undo/Redo
+    const [history, setHistory] = useState<{ video: any[], audio: any[] }[]>([]);
+    const [historyIndex, setHistoryIndex] = useState(-1);
+
+    // Save State to History
+    const saveToHistory = (newVideoTracks: any[], newAudioTracks: any[]) => {
+        // If we travelled back, trunc future history
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push({ video: newVideoTracks, audio: newAudioTracks });
+        // Limit history size (e.g. 50 steps)
+        if (newHistory.length > 50) newHistory.shift();
+
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+    };
+
+    const handleUndo = () => {
+        if (historyIndex > 0) {
+            const prevIndex = historyIndex - 1;
+            const state = history[prevIndex];
+            setVideoTracks(state.video);
+            setAudioTracks(state.audio);
+            setHistoryIndex(prevIndex);
+        }
+    };
+
+    const handleRedo = () => {
+        if (historyIndex < history.length - 1) {
+            const nextIndex = historyIndex + 1;
+            const state = history[nextIndex];
+            setVideoTracks(state.video);
+            setAudioTracks(state.audio);
+            setHistoryIndex(nextIndex);
+        }
+    };
+
     const toggleTrackState = (type: 'video' | 'audio', trackIndex: number, key: 'muted' | 'hidden' | 'locked') => {
         if (key === 'locked') return; // Not implemented yet
         if (type === 'video') {
@@ -92,10 +128,13 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 type: 'audio',
                 start: newStartTime,
                 duration: duration,
+                sourceDuration: duration, // FIX: Save original source length
                 trackIndex: 0, // Default Audio Track 0
                 volume: 1.0
             };
-            setAudioTracks([...audioTracks, newTrack]);
+            const updatedAudio = [...audioTracks, newTrack];
+            setAudioTracks(updatedAudio);
+            saveToHistory(videoTracks, updatedAudio);
         } else {
             // Magnetic Logic for Video Track 0
             const track0Items = videoTracks.filter(t => t.trackIndex === 0 || t.trackIndex === undefined);
@@ -108,12 +147,14 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 type: 'video',
                 start: newStartTime,
                 duration: duration,
+                sourceDuration: duration, // FIX: Save original source length
                 trackIndex: 0, // Default Video Track 0
                 volume: 1.0
             };
 
             const updatedTracks = [...videoTracks, newTrack];
             setVideoTracks(updatedTracks);
+            saveToHistory(updatedTracks, audioTracks);
 
             // Update total duration (Video leads duration usually)
             const totalDuration = updatedTracks.reduce((acc, t) => Math.max(acc, t.start + t.duration), 0);
@@ -167,13 +208,13 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     };
 
     const handleUpdateVideoTracks = (newTracks: any[]) => {
-        // Removed normalizeTracks to allow gaps/stable stacking
         setVideoTracks(newTracks);
+        saveToHistory(newTracks, audioTracks);
     };
 
     const handleUpdateAudioTracks = (newTracks: any[]) => {
-        // Removed normalizeTracks to allow gaps/stable stacking
         setAudioTracks(newTracks);
+        saveToHistory(videoTracks, newTracks);
     };
 
     // Spacebar Key Listener
@@ -490,6 +531,8 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                             // Mobile Drag Props
                             externalDragItem={externalDragItem}
                             onExternalDragEnd={() => setExternalDragItem(null)}
+                            onUndo={handleUndo}
+                            onRedo={handleRedo}
                         />
                     </div>
                 </div>

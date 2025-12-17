@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward, Scissors, Layers, Volume2, Type, Eye, EyeOff, VolumeX, Trash2, MousePointer2 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Scissors, Layers, Volume2, Type, Eye, EyeOff, VolumeX, Trash2, MousePointer2, RotateCcw, RotateCw } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 
 interface TimelinePanelProps {
@@ -14,6 +14,11 @@ interface TimelinePanelProps {
     onUpdateAudioTracks?: (tracks: any[]) => void;
     selectedClipId?: string | null;
     onSelectClip?: (id: string | null) => void;
+
+    // Undo/Redo
+    onUndo?: () => void;
+    onRedo?: () => void;
+
     // Track State
     videoTrackState?: Record<number, { muted: boolean, hidden: boolean }>;
     audioTrackState?: Record<number, { muted: boolean, hidden: boolean }>;
@@ -41,7 +46,9 @@ export function TimelinePanel({
     audioTrackState = {},
     onToggleTrackState,
     externalDragItem,
-    onExternalDragEnd
+    onExternalDragEnd,
+    onUndo,
+    onRedo
 }: TimelinePanelProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const headerContainerRef = useRef<HTMLDivElement>(null);
@@ -192,7 +199,7 @@ export function TimelinePanel({
     useEffect(() => {
         if (!externalDragItem) return;
 
-        const handleExternalTouchEnd = (e: TouchEvent) => {
+        const handleExternalTouchEnd = async (e: TouchEvent) => {
             const touch = e.changedTouches[0];
             const clientX = touch.clientX;
             const clientY = touch.clientY;
@@ -211,6 +218,8 @@ export function TimelinePanel({
                     const relativeX = clientX - rect.left + scrollLeft;
                     const dropTime = Math.max(0, relativeX / PIXELS_PER_SECOND);
 
+                    const duration = await getMediaDuration(externalDragItem.url, externalDragItem.type);
+
                     // Add Track
                     const newId = Math.random().toString(36).substr(2, 9);
                     const newTrack = {
@@ -218,7 +227,8 @@ export function TimelinePanel({
                         url: externalDragItem.url,
                         type: externalDragItem.type,
                         start: dropTime,
-                        duration: 5, // Default
+                        duration: duration,
+                        sourceDuration: duration, // Correctly set Source Duration
                         trackIndex: 0,
                         volume: 1.0
                     };
@@ -230,13 +240,12 @@ export function TimelinePanel({
                     }
                 }
             }
-            // Always clear drag state
-            onExternalDragEnd && onExternalDragEnd();
+            if (onExternalDragEnd) onExternalDragEnd();
         };
 
         window.addEventListener('touchend', handleExternalTouchEnd);
         return () => window.removeEventListener('touchend', handleExternalTouchEnd);
-    }, [externalDragItem, videoTracks, audioTracks, onUpdateVideoTracks, onUpdateAudioTracks, onExternalDragEnd, PIXELS_PER_SECOND]);
+    }, [externalDragItem, videoTracks, audioTracks, PIXELS_PER_SECOND, onExternalDragEnd, onUpdateVideoTracks, onUpdateAudioTracks, getMediaDuration]);
 
     // Internal Drag Logic
     useEffect(() => {
@@ -725,15 +734,25 @@ export function TimelinePanel({
 
     return (
         <div className="h-full flex flex-col bg-[#1e1e1e] border-t border-[#333] relative">
-            {/* DEBUG OVERLAY - PURPLE CONFIRMS UPDATE */}
-            <div className="absolute top-0 right-0 z-50 bg-purple-900/90 text-white text-[10px] p-2 pointer-events-none font-mono">
-                <div>BUILD UPDATED</div>
-                {logs.map((l, i) => <div key={i}>{l}</div>)}
-            </div>
 
             {/* 1. Toolbar (Top) */}
             <div className="h-10 border-b border-[#333] flex items-center justify-between px-4 bg-[#1e1e1e] shrink-0 z-30">
                 <div className="flex items-center gap-2 text-zinc-400">
+                    <button
+                        onClick={onUndo}
+                        className="p-1.5 hover:text-white hover:bg-white/10 rounded disabled:opacity-30"
+                        title="Undo (Ctrl+Z)"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={onRedo}
+                        className="p-1.5 hover:text-white hover:bg-white/10 rounded disabled:opacity-30"
+                        title="Redo (Ctrl+Y)"
+                    >
+                        <RotateCw className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-zinc-700 mx-1" />
                     <button
                         onClick={() => setActiveTool('select')}
                         className={`p-1.5 rounded transition-colors ${activeTool === 'select' ? 'bg-indigo-600 text-white shadow-lg' : 'hover:text-white hover:bg-white/10'}`}
@@ -993,12 +1012,17 @@ export function TimelinePanel({
                                                         border: '1px solid #2A7A7A'
                                                     }}
                                                 >
-                                                    {/* Left Handle - Touch Friendly */}
+                                                    {/* Left Handle - Touch Friendly & Visible */}
                                                     <div
-                                                        className="absolute -left-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className={`absolute -left-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                    />
+                                                    >
+                                                        {/* Visible Bar */}
+                                                        <div className="w-1.5 h-8 bg-white rounded-full shadow-lg" />
+                                                    </div>
 
                                                     {/* Thumbnails Strip (Mock) */}
                                                     <div className="absolute inset-0 opacity-20 flex overflow-hidden pointer-events-none">
@@ -1010,12 +1034,17 @@ export function TimelinePanel({
                                                         <span className="text-[10px] font-medium text-teal-100 truncate drop-shadow-md">{clip.id}</span>
                                                     </div>
 
-                                                    {/* Right Handle - Touch Friendly */}
+                                                    {/* Right Handle - Touch Friendly & Visible */}
                                                     <div
-                                                        className="absolute -right-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className={`absolute -right-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                    />
+                                                    >
+                                                        {/* Visible Bar */}
+                                                        <div className="w-1.5 h-8 bg-white rounded-full shadow-lg" />
+                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -1087,10 +1116,14 @@ export function TimelinePanel({
                                                 >
                                                     {/* Left Handle - Touch Friendly */}
                                                     <div
-                                                        className="absolute -left-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className={`absolute -left-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                    />
+                                                    >
+                                                        <div className="w-1 h-4 bg-indigo-200 rounded-full shadow-lg" />
+                                                    </div>
 
                                                     {/* Waveform Mock */}
                                                     <div className="absolute inset-x-0 bottom-0 h-1/2 flex items-end gap-px opacity-50 px-1 pointer-events-none">
@@ -1104,10 +1137,14 @@ export function TimelinePanel({
 
                                                     {/* Right Handle - Touch Friendly */}
                                                     <div
-                                                        className="absolute -right-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className={`absolute -right-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                    />
+                                                    >
+                                                        <div className="w-1 h-4 bg-indigo-200 rounded-full shadow-lg" />
+                                                    </div>
                                                 </div>
                                             );
                                         })}
