@@ -1026,7 +1026,7 @@ export function TimelinePanel({
                                                         }
                                                     }}
                                                     // CAPCUT STYLE: Teal/Cyber colors
-                                                    className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden clip-item z-10 select-none group
+                                                    className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden clip-item z-10 select-none group touch-pan-y
                                                     ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-white z-20' : ''}
                                                     ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'} 
@@ -1138,7 +1138,7 @@ export function TimelinePanel({
                                                             handleSplit(clip.id, 'audio', splitTime);
                                                         }
                                                     }}
-                                                    className={`absolute top-px bottom-px rounded-sm bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group
+                                                    className={`absolute top-px bottom-px rounded-sm bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group touch-pan-y
                                                     ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
                                                         ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
