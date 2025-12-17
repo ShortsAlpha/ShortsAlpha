@@ -33,9 +33,9 @@ export async function POST(request: NextRequest) {
         const getCommand = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
         const signedGetUrl = await getSignedUrl(s3Client, getCommand, { expiresIn: 604800 }); // 7 Days
 
-        const finalPublicUrl = process.env.R2_PUBLIC_URL
-            ? `${process.env.R2_PUBLIC_URL}/${key}`
-            : signedGetUrl;
+        // FORCE SIGNED URL: Bypasses "Private Bucket" access issues which cause 403 (Err 4) on iOS
+        // even if R2_PUBLIC_URL is configured (but bucket is not actually public).
+        const finalPublicUrl = signedGetUrl;
 
         return NextResponse.json({
             uploadUrl: signedUrl,
