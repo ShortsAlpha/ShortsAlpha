@@ -46,7 +46,15 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error("Error triggering render:", error);
+        console.error("Error triggering render:", error.message);
+        if (error.response) {
+            console.error("Modal Response Status:", error.response.status);
+            console.error("Modal Response Data:", JSON.stringify(error.response.data, null, 2));
+            return NextResponse.json(
+                { error: `Modal Error ${error.response.status}: ${JSON.stringify(error.response.data)}` },
+                { status: error.response.status }
+            );
+        }
         return NextResponse.json(
             { error: error.message || "Failed to trigger render" },
             { status: 500 }

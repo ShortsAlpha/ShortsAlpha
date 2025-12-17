@@ -89,11 +89,15 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                     const trackIdx = clip.trackIndex || 0;
                     if (videoTrackState[trackIdx]?.hidden) return null; // Don't render if hidden
 
+                    // Force remount if URL changes (e.g. re-upload)
+                    const mk = `${clip.id}-${clip.url}`;
+
                     return (
-                        <React.Fragment key={clip.id}>
+                        <React.Fragment key={mk}>
                             <video
                                 ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
                                 src={clip.url}
+                                preload="metadata"
                                 className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
                                 style={{
                                     zIndex: index, // Higher index = On Top
