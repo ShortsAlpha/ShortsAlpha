@@ -159,18 +159,20 @@ export function TimelinePanel({
             return;
         }
 
-        const handleMouseMove = (e: MouseEvent) => {
+        // Use Window Listener for Razor Guide to ensure it tracks everywhere
+        const handleGlobalMouseMove = (e: MouseEvent) => {
             if (scrollContainerRef.current) {
                 const rect = scrollContainerRef.current.getBoundingClientRect();
+                // Check if mouse is within vertical bounds of timeline (optional, but good for UX)
+                // Actually user wants "long bar" so it should probably just track X relative to container
                 const x = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
                 setRazorLineX(x);
             }
         };
 
-        // Use Global logic or attaching to container? Global is easier for "mouse tip" effect
-        // But we need relative X for the timeline guide.
-        // Let's attach to window but filter by hover? 
-        // Actually, onMouseMove on the container is better.
+        window.addEventListener('mousemove', handleGlobalMouseMove);
+        return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+
     }, [activeTool]);
 
 
@@ -569,7 +571,12 @@ export function TimelinePanel({
     };
 
     const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio', edge: 'start' | 'end', start: number, duration: number, maxDuration?: number) => {
+        // IMPORTANT: Prevent scrolling or other gestures
+        // e.preventDefault(); // React synthetic events might warn, but let's try just stopPropagation first.
+        // Actually for direct touch manipulation we often want preventDefault to stop scrolling.
+        if (e.cancelable && 'touches' in e) e.preventDefault();
         e.stopPropagation();
+
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
 
         setResizing({
@@ -818,7 +825,14 @@ export function TimelinePanel({
                                     <div className="flex items-center justify-between text-zinc-500 mb-1">
                                         <span className="text-[10px] font-bold text-teal-500/80">V{trackIdx}</span>
                                         {/* Status Indicators (Mini) */}
-                                        <div className="flex gap-1 opacity-50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-mono text-zinc-400 min-w-[40px] text-right">
+                                                {new Date(currentTime * 1000).toISOString().substr(14, 5)}
+                                            </span>
+                                            <span className="text-xs text-zinc-600">/</span>
+                                            <span className="text-xs font-mono text-zinc-500 min-w-[40px]">
+                                                {new Date(Math.max(duration, ...videoTracks.map(t => t.start + t.duration), ...audioTracks.map(t => t.start + t.duration)) * 1000).toISOString().substr(14, 5)}
+                                            </span>
                                             {videoTrackState[trackIdx]?.hidden && <EyeOff className="w-2.5 h-2.5 text-zinc-400" />}
                                         </div>
                                     </div>
@@ -1113,7 +1127,7 @@ export function TimelinePanel({
                                                             handleSplit(clip.id, 'audio', splitTime);
                                                         }
                                                     }}
-                                                    className={`absolute top-px bottom-px rounded-full bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group
+                                                    className={`absolute top-px bottom-px rounded-sm bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group
                                                     ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
                                                         ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
@@ -1121,7 +1135,7 @@ export function TimelinePanel({
                                                     style={{
                                                         left: `${clip.start * PIXELS_PER_SECOND}px`,
                                                         width: `${clip.duration * PIXELS_PER_SECOND}px`,
-                                                        border: '1px solid #2A4A7A'
+                                                        border: '1px solid #5b6da0'
                                                     }}
                                                 >
                                                     {/* Left Handle - Touch Friendly */}
@@ -1135,10 +1149,10 @@ export function TimelinePanel({
                                                         <div className="w-1 h-4 bg-indigo-200 rounded-full shadow-lg" />
                                                     </div>
 
-                                                    {/* Waveform Mock */}
-                                                    <div className="absolute inset-x-0 bottom-0 h-1/2 flex items-end gap-px opacity-50 px-1 pointer-events-none">
+                                                    {/* Waveform Mock - Static & Angular */}
+                                                    <div className="absolute inset-x-0 bottom-0 h-1/2 flex items-end opacity-30 px-1 pointer-events-none gap-0.5">
                                                         {Array.from({ length: 20 }).map((_, i) => (
-                                                            <div key={i} className="flex-1 bg-indigo-300" style={{ height: `${Math.random() * 80 + 20}%` }} />
+                                                            <div key={i} className="flex-1 bg-indigo-200" style={{ height: `${30 + ((i % 3) * 20)}%` }} />
                                                         ))}
                                                     </div>
                                                     <div className="relative px-2 h-full flex items-start pt-1 pointer-events-none">

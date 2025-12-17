@@ -128,9 +128,8 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                     );
                 })
             ) : (
-                // Fallback / Placeholder
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-zinc-700">
-                    <span className="text-xs">No Signal</span>
+                <div className="flex items-center justify-center h-full text-[#333] select-none">
+                    No Signal
                 </div>
             )}
 
