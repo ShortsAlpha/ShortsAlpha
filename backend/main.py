@@ -7,6 +7,9 @@ image = modal.Image.debian_slim() \
     .apt_install("ffmpeg", "imagemagick") \
     .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy")
 
+# Lightweight Image for Web Endpoints (Fast Cold Start)
+light_image = modal.Image.debian_slim().pip_install("fastapi", "pydantic")
+
 app = modal.App("shorts-pilot-backend")
 
 class VideoRequest(BaseModel):
@@ -406,7 +409,7 @@ def process_video_logic(video_url: str, output_key: str, api_key: str, r2_creden
             
     return {"status": "finished"}
 
-@app.function(image=image)
+@app.function(image=light_image)
 @web_endpoint(method="POST")
 def process_video(item: VideoRequest):
     # Pack credentials
@@ -421,7 +424,7 @@ def process_video(item: VideoRequest):
     call = process_video_logic.spawn(item.video_url, item.output_key, item.api_key, r2_creds)
     return {"status": "started", "call_id": call.object_id}
 
-@app.function(image=image)
+@app.function(image=light_image)
 @web_endpoint(method="POST")
 def render_video(item: RenderRequest):
     r2_creds = {

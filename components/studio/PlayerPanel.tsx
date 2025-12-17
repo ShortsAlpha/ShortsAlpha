@@ -45,7 +45,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 // Volume Control (Global Track Mute overrides clip volume)
                 const trackIdx = clip.trackIndex || 0;
                 const isTrackMuted = videoTrackState[trackIdx]?.muted;
-                el.volume = isTrackMuted ? 0 : (clip.volume !== undefined ? clip.volume : 1.0);
+                el.volume = Math.min(1, Math.max(0, isTrackMuted ? 0 : (clip.volume !== undefined ? clip.volume : 1.0)));
             }
         });
 
@@ -71,7 +71,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 // Volume Control (Global Track Mute overrides clip volume)
                 const trackIdx = track.trackIndex || 0;
                 const isTrackMuted = audioTrackState[trackIdx]?.muted;
-                el.volume = isTrackMuted ? 0 : (track.volume !== undefined ? track.volume : 1.0);
+                el.volume = Math.min(1, Math.max(0, isTrackMuted ? 0 : (track.volume !== undefined ? track.volume : 1.0)));
             }
         });
 

@@ -69,9 +69,12 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
 
     useEffect(() => {
         if (moving) {
-            const handleMouseMove = (e: MouseEvent) => {
-                const deltaX = e.clientX - moving.initialX;
-                const deltaY = e.clientY - moving.initialY;
+            const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+                const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+                const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+                const deltaX = clientX - moving.initialX;
+                const deltaY = clientY - moving.initialY;
                 const deltaSeconds = deltaX / PIXELS_PER_SECOND;
 
                 // 1. Calculate New Start Time
@@ -274,44 +277,52 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
 
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('touchmove', handleMouseMove as any, { passive: false });
+            window.addEventListener('touchend', handleMouseUp);
 
             return () => {
                 window.removeEventListener('mousemove', handleMouseMove);
                 window.removeEventListener('mouseup', handleMouseUp);
+                window.removeEventListener('touchmove', handleMouseMove as any);
+                window.removeEventListener('touchend', handleMouseUp);
             };
         }
     }, [resizing, moving, videoTracks, audioTracks, onUpdateVideoTracks, onUpdateAudioTracks, PIXELS_PER_SECOND]);
 
-    // Handle Start Move (Mouse Down on Clip Body)
-    const handleMoveStart = (e: React.MouseEvent, clipId: string, type: 'video' | 'audio', start: number, trackIndex: number) => {
-        e.preventDefault();
-        e.stopPropagation(); // Stop parent click
+    // Handle Start Move (Mouse/Touch Down on Clip Body)
+    const handleMoveStart = (e: React.MouseEvent | React.TouchEvent, clipId: string, type: 'video' | 'audio', start: number, trackIndex: number) => {
+        // e.preventDefault(); // Don't prevent default immediately if we want scrolling, but for DND we usually do.
+        e.stopPropagation();
 
-        // Only left click
-        if (e.button !== 0) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+        // Only left click for mouse
+        if ('button' in e && (e as React.MouseEvent).button !== 0) return;
 
         addLog(`MOVE START: ${clipId}`);
         setMoving({
             id: clipId,
             type,
-            initialX: e.clientX,
-            initialY: e.clientY,
+            initialX: clientX,
+            initialY: clientY,
             initialStart: start,
             trackIndex,
             originalTrackIndex: trackIndex
         });
 
-        // Also Select
         onSelectClip && onSelectClip(clipId);
     };
 
-    const handleResizeStart = (e: React.MouseEvent, id: string, type: 'video' | 'audio', edge: 'start' | 'end', start: number, duration: number) => {
+    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio', edge: 'start' | 'end', start: number, duration: number) => {
         e.stopPropagation();
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+
         setResizing({
             id,
             type,
             edge,
-            initialX: e.clientX,
+            initialX: clientX,
             initialStart: start,
             initialDuration: duration
         });
@@ -644,6 +655,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                                                 <div
                                                     key={clip.id}
                                                     onMouseDown={(e) => handleMoveStart(e, clip.id, 'video', clip.start, trackIdx)}
+                                                    onTouchStart={(e) => handleMoveStart(e, clip.id, 'video', clip.start, trackIdx)}
                                                     onClick={(e) => {
                                                         // Selection handles in MoveStart now
                                                         e.stopPropagation();
@@ -673,6 +685,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                                                     <div
                                                         className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration)}
                                                     />
 
                                                     {/* Thumbnails Strip (Mock) */}
@@ -689,6 +702,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                                                     <div
                                                         className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration)}
                                                     />
                                                 </div>
                                             );
@@ -726,6 +740,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                                                 <div
                                                     key={clip.id}
                                                     onMouseDown={(e) => handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx)}
+                                                    onTouchStart={(e) => handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx)}
                                                     onClick={(e) => {
                                                         // Selection handled in MoveStart
                                                         e.stopPropagation();
@@ -746,6 +761,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                                                     <div
                                                         className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration)}
                                                     />
 
                                                     {/* Waveform Mock */}
@@ -762,6 +778,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                                                     <div
                                                         className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration)}
                                                     />
                                                 </div>
                                             );

@@ -90,7 +90,21 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
                             {vid.type === 'audio' ? (
                                 <Music className="w-8 h-8 text-zinc-500 group-hover:text-indigo-400" />
                             ) : (
-                                <Video className="w-8 h-8 text-zinc-500 group-hover:text-white" />
+                                <>
+                                    <video
+                                        src={vid.url + "#t=0.5"}
+                                        preload="metadata"
+                                        className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity duration-300"
+                                        onMouseOver={e => e.currentTarget.play()}
+                                        onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0.5; }}
+                                        muted
+                                        playsInline
+                                    />
+                                    {/* Overlay Icon for clarity */}
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none group-hover:opacity-0 transition-opacity">
+                                        <Video className="w-8 h-8 text-white/50" />
+                                    </div>
+                                </>
                             )}
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
