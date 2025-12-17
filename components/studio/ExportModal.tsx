@@ -44,15 +44,14 @@ export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
             <div className={`bg-zinc-900 border border-zinc-800 rounded-2xl w-full shadow-2xl p-6 relative transition-all duration-500 ${status === 'ready' ? 'max-w-4xl' : 'max-w-md'}`}>
 
-                {/* Close Button */}
-                {(status === 'failed' || status === 'ready') && (
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                )}
+                {/* Close / Cancel Button */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-2 hover:bg-zinc-800 rounded-full"
+                    title={status === 'ready' || status === 'failed' ? "Close" : "Cancel Rendering"}
+                >
+                    <X className="w-5 h-5" />
+                </button>
 
                 <div className="flex flex-col md:flex-row gap-8">
                     {/* Left Column: Preview (Only visible when ready) */}
