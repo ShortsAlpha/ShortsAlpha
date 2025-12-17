@@ -113,10 +113,10 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                                     // Show error on UI
                                     const span = document.getElementById(`debug-${clip.id}`);
                                     if (span) span.style.display = 'block';
-                                    if (span) span.innerText = `ERR: ${err?.code} - ${err?.message}`;
+                                    if (span) span.innerText = `ERR: ${err?.code}\nSrc: ${clip.url.slice(0, 50)}...`;
                                 }}
                             />
-                            <div id={`debug-${clip.id}`} className="hidden absolute top-0 left-0 bg-red-600 text-white text-[10px] p-1 z-[100]">
+                            <div id={`debug-${clip.id}`} className="hidden absolute top-0 left-0 bg-red-600 text-white text-[10px] p-1 z-[100] max-w-[200px] break-all">
                                 Loading...
                             </div>
                         </React.Fragment>
