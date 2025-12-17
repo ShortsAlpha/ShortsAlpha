@@ -241,6 +241,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
+    const [exportError, setExportError] = useState<string | null>(null);
     const [finalDownloadUrl, setFinalDownloadUrl] = useState<string | null>(null);
 
     const [externalDragItem, setExternalDragItem] = useState<{ url: string, type: 'video' | 'audio', title: string } | null>(null);
@@ -319,9 +320,17 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 }, 900000);
             }
 
-        } catch (e) {
+        } catch (e: any) {
             console.error("Export Failed", e);
             setExportStatus('failed');
+            // Extract meaningful message
+            let msg = "Export failed to start.";
+            if (e.response) {
+                msg = `Server Error: ${e.response.status} - ${JSON.stringify(e.response.data)}`;
+            } else if (e.message) {
+                msg = e.message;
+            }
+            setExportError(msg);
         }
     };
 
@@ -343,6 +352,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
             <ExportModal
                 isOpen={isExportModalOpen}
                 status={exportStatus}
+                errorMessage={exportError}
                 downloadUrl={finalDownloadUrl}
                 onClose={() => setIsExportModalOpen(false)}
                 onDownload={triggerDownload}

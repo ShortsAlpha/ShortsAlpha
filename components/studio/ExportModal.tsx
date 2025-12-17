@@ -7,12 +7,13 @@ interface ExportModalProps {
     isOpen: boolean;
     status: ExportStatus;
     downloadUrl: string | null;
+    errorMessage?: string | null;
     onClose: () => void;
     onDownload: () => void;
     onCloseComplete?: () => void; // Called when closing after success
 }
 
-export function ExportModal({ isOpen, status, downloadUrl, onClose, onDownload }: ExportModalProps) {
+export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose, onDownload }: ExportModalProps) {
     if (!isOpen) return null;
 
     const steps = [
@@ -120,9 +121,7 @@ export function ExportModal({ isOpen, status, downloadUrl, onClose, onDownload }
                                 <AlertCircle className="w-5 h-5 shrink-0" />
                                 <div className="text-sm">
                                     <span className="font-bold block">Render Failed</span>
-                                    <span className="font-bold block">Render Failed</span>
-                                    {/* TODO: Pass actual error message via props or state */}
-                                    Check console logs for details. (API Access / CORS?)
+                                    {errorMessage || "Check console logs for details. (API Access / CORS?)"}
                                 </div>
                             </div>
                         )}

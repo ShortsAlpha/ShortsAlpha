@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Sparkles, CheckCircle2, Zap } from "lucide-react";
 
-const CURRENT_VERSION = "beta-v1.2.0"; // Increment this on deployments
+const CURRENT_VERSION = "beta-v1.2.1"; // Increment this on deployments
 
 export function WhatsNewModal() {
     const [isOpen, setIsOpen] = useState(false);

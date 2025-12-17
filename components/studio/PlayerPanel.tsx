@@ -105,7 +105,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                                 }}
                                 loop={false}
                                 playsInline
-                                crossOrigin="anonymous"
+                                // crossOrigin="anonymous" // REMOVED: R2 Bucket Likely doesn't have CORS set, so this blocks playback (Error 4).
                                 muted={false}
                                 onError={(e) => {
                                     const err = e.currentTarget.error;
