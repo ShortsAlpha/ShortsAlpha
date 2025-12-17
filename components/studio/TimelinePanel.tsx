@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward, Scissors, Layers, Volume2, Type, Eye, EyeOff, VolumeX } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Scissors, Layers, Volume2, Type, Eye, EyeOff, VolumeX, Trash2, MousePointer2 } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 
 interface TimelinePanelProps {
@@ -64,6 +64,98 @@ export function TimelinePanel({
 
     // Scrubbing State
     const [isScrubbing, setIsScrubbing] = useState(false);
+
+    // activeTool State
+    const [activeTool, setActiveTool] = useState<'select' | 'razor'>('select');
+
+    // Context Menu State
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, clipId: string, type: 'video' | 'audio' } | null>(null);
+
+    // Razor Hover State (for guide line)
+    const [razorLineX, setRazorLineX] = useState<number | null>(null);
+
+    // --- TOOL ACTIONS ---
+
+    const handleDelete = () => {
+        if (!selectedClipId) return;
+
+        // Try Video
+        if (videoTracks.some(t => t.id === selectedClipId)) {
+            const newTracks = videoTracks.filter(t => t.id !== selectedClipId);
+            onUpdateVideoTracks(newTracks);
+        }
+        // Try Audio
+        else if (audioTracks.some(t => t.id === selectedClipId)) {
+            const newTracks = audioTracks.filter(t => t.id !== selectedClipId);
+            onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
+        }
+
+        onSelectClip && onSelectClip(null);
+        setContextMenu(null);
+    };
+
+    const handleSplit = (clipId: string, type: 'video' | 'audio', splitTime: number) => {
+        const tracks = type === 'video' ? videoTracks : audioTracks;
+        const clipIndex = tracks.findIndex(t => t.id === clipId);
+        if (clipIndex === -1) return;
+
+        const clip = tracks[clipIndex];
+        // Relative time within the clip
+        const relativeSplit = splitTime - clip.start;
+
+        if (relativeSplit <= 0.1 || relativeSplit >= clip.duration - 0.1) return; // Too close to edge
+
+        // Create two new clips
+        const clip1 = { ...clip, duration: relativeSplit, id: Math.random().toString(36).substr(2, 9) };
+        const clip2 = {
+            ...clip,
+            id: Math.random().toString(36).substr(2, 9),
+            start: clip.start + relativeSplit,
+            duration: clip.duration - relativeSplit,
+            // Adjust offset if it's a video/audio source
+            // offset means "skip first X seconds of source"
+            // So clip2 starts at offset + relativeSplit
+            offset: (clip.offset || 0) + relativeSplit
+        };
+
+        const newTracks = [...tracks];
+        newTracks.splice(clipIndex, 1, clip1, clip2);
+
+        if (type === 'video') {
+            onUpdateVideoTracks(newTracks);
+        } else {
+            onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
+        }
+    };
+
+    // Close Context Menu on click elsewhere
+    useEffect(() => {
+        const closeMenu = () => setContextMenu(null);
+        window.addEventListener('click', closeMenu);
+        return () => window.removeEventListener('click', closeMenu);
+    }, []);
+
+    // Razor Guide Listener
+    useEffect(() => {
+        if (activeTool !== 'razor') {
+            setRazorLineX(null);
+            return;
+        }
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (scrollContainerRef.current) {
+                const rect = scrollContainerRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+                setRazorLineX(x);
+            }
+        };
+
+        // Use Global logic or attaching to container? Global is easier for "mouse tip" effect
+        // But we need relative X for the timeline guide.
+        // Let's attach to window but filter by hover? 
+        // Actually, onMouseMove on the container is better.
+    }, [activeTool]);
+
 
     // Moving State (Manual Drag)
 
@@ -642,8 +734,29 @@ export function TimelinePanel({
             {/* 1. Toolbar (Top) */}
             <div className="h-10 border-b border-[#333] flex items-center justify-between px-4 bg-[#1e1e1e] shrink-0 z-30">
                 <div className="flex items-center gap-2 text-zinc-400">
-                    <button className="p-1.5 hover:text-white hover:bg-white/10 rounded"><Scissors className="w-4 h-4" /></button>
-                    <button className="p-1.5 hover:text-white hover:bg-white/10 rounded"><Layers className="w-4 h-4" /></button>
+                    <button
+                        onClick={() => setActiveTool('select')}
+                        className={`p-1.5 rounded transition-colors ${activeTool === 'select' ? 'bg-indigo-600 text-white shadow-lg' : 'hover:text-white hover:bg-white/10'}`}
+                        title="Select Tool (V)"
+                    >
+                        <MousePointer2 className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setActiveTool('razor')}
+                        className={`p-1.5 rounded transition-colors ${activeTool === 'razor' ? 'bg-rose-600 text-white shadow-lg' : 'hover:text-white hover:bg-white/10'}`}
+                        title="Razor/Split Tool (C)"
+                    >
+                        <Scissors className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-zinc-700 mx-1" />
+                    <button
+                        onClick={handleDelete}
+                        disabled={!selectedClipId}
+                        className={`p-1.5 rounded transition-colors ${selectedClipId ? 'text-red-400 hover:bg-red-500/20' : 'opacity-30 cursor-not-allowed'}`}
+                        title="Delete Selected (Del)"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -823,14 +936,44 @@ export function TimelinePanel({
                                             return (
                                                 <div
                                                     key={clip.id}
-                                                    onMouseDown={(e) => handleMoveStart(e, clip.id, 'video', clip.start, trackIdx)}
-                                                    onTouchStart={(e) => handleMoveStart(e, clip.id, 'video', clip.start, trackIdx)}
-                                                    onClick={(e) => {
-                                                        // Selection handles in MoveStart now
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
                                                         e.stopPropagation();
+                                                        onSelectClip && onSelectClip(clip.id);
+                                                        setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'video' });
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        if (activeTool === 'razor') return; // Don't drag in razor mode
+                                                        handleMoveStart(e, clip.id, 'video', clip.start, trackIdx);
+                                                    }}
+                                                    onTouchStart={(e) => {
+                                                        if (activeTool === 'razor') {
+                                                            // Touch Split immediately? Or wait for tap?
+                                                            // Usually tap. TouchStart might be drag.
+                                                            // Let's split on Click (Tap) for consistency.
+                                                            return;
+                                                        }
+                                                        handleMoveStart(e, clip.id, 'video', clip.start, trackIdx);
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (activeTool === 'razor') {
+                                                            // SPLIT ACTION
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            const clickX = e.clientX - rect.left; // x relative to clip start visually?
+                                                            // No, clientX is screen. rect.left is clip start screen x.
+                                                            // So clickX is pixel offset into clip.
+                                                            const splitTime = clip.start + (clickX / PIXELS_PER_SECOND);
+                                                            handleSplit(clip.id, 'video', splitTime);
+                                                        } else {
+                                                            // Select
+                                                            // Don't need to do anything as onMouseDown usually handles select/drag start
+                                                            // But explicit select is good.
+                                                        }
                                                     }}
                                                     // CAPCUT STYLE: Teal/Cyber colors
-                                                    className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden cursor-move active:cursor-grabbing clip-item z-10 select-none group
+                                                    className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden clip-item z-10 select-none group
+                                                    ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-white z-20' : ''}
                                                     ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'} 
                                                     `}
@@ -908,21 +1051,37 @@ export function TimelinePanel({
                                             return (
                                                 <div
                                                     key={clip.id}
-                                                    onMouseDown={(e) => handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx)}
-                                                    onTouchStart={(e) => handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx)}
-                                                    onClick={(e) => {
-                                                        // Selection handled in MoveStart
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
                                                         e.stopPropagation();
+                                                        onSelectClip && onSelectClip(clip.id);
+                                                        setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'audio' });
                                                     }}
-                                                    // CAPCUT STYLE: Blue colors
-                                                    className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden cursor-move active:cursor-grabbing clip-item z-10 select-none group
-                                                        ${selectedClipId === clip.id ? 'ring-2 ring-white z-20' : ''}
+                                                    onMouseDown={(e) => {
+                                                        if (activeTool === 'razor') return;
+                                                        handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx);
+                                                    }}
+                                                    onTouchStart={(e) => {
+                                                        if (activeTool === 'razor') return;
+                                                        handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx);
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (activeTool === 'razor') {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            const clickX = e.clientX - rect.left;
+                                                            const splitTime = clip.start + (clickX / PIXELS_PER_SECOND);
+                                                            handleSplit(clip.id, 'audio', splitTime);
+                                                        }
+                                                    }}
+                                                    className={`absolute top-px bottom-px rounded-full bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group
+                                                    ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
+                                                    ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
                                                         ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
                                                         `}
                                                     style={{
                                                         left: `${clip.start * PIXELS_PER_SECOND}px`,
                                                         width: `${clip.duration * PIXELS_PER_SECOND}px`,
-                                                        backgroundColor: '#1E3A5E', // Navy Blue
                                                         border: '1px solid #2A4A7A'
                                                     }}
                                                 >
@@ -976,14 +1135,22 @@ export function TimelinePanel({
 
                         </div>
 
-                        {/* Snap Guide Line */}
+                        {/* Snap Line */}
                         {snapLine !== null && (
                             <div
-                                className="absolute top-0 bottom-0 w-px bg-yellow-400 z-[100] pointer-events-none shadow-[0_0_10px_rgba(250,204,21,0.8)]"
+                                className="absolute top-0 bottom-0 w-px bg-yellow-400 z-40 pointer-events-none shadow-[0_0_10px_rgba(250,204,21,0.5)]"
                                 style={{ left: `${snapLine * PIXELS_PER_SECOND}px` }}
+                            />
+                        )}
+
+                        {/* Razor Guide Line */}
+                        {activeTool === 'razor' && razorLineX !== null && (
+                            <div
+                                className="absolute top-0 bottom-0 w-px bg-rose-500 z-50 pointer-events-none border-l border-dashed border-rose-200"
+                                style={{ left: `${razorLineX}px` }}
                             >
-                                <div className="absolute top-0 -translate-x-1/2 text-[9px] bg-yellow-400 text-black px-1 rounded-b font-bold">
-                                    SNAP
+                                <div className="absolute top-8 -left-3 bg-rose-600/90 text-[9px] text-white px-1 py-0.5 rounded shadow-sm flex items-center justify-center">
+                                    <Scissors className="w-3 h-3" />
                                 </div>
                             </div>
                         )}
