@@ -379,12 +379,14 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 </div>
             </header>
 
-            {/* 2. Main Workspace (3-Column Layout) */}
-            <div className="flex-1 flex min-h-0 overflow-hidden">
+            {/* 2. Main Workspace (Vertical Split: Top Panels / Bottom Timeline) */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-                {/* LEFT: Asset Library (Fixed Width) */}
-                <div className="w-[380px] flex flex-col border-r border-zinc-800 bg-zinc-950 shrink-0 z-10">
-                    <div className="flex-1 overflow-hidden flex flex-col">
+                {/* TOP HALF: Assets | Player | Properties */}
+                <div className="flex-1 flex min-h-0 border-b border-zinc-800">
+
+                    {/* LEFT: Asset Library */}
+                    <div className="w-[380px] flex flex-col border-r border-zinc-800 bg-zinc-950 shrink-0 z-10">
                         <div className="flex items-center gap-1 p-2 border-b border-zinc-900 bg-zinc-950 shrink-0">
                             {['Media', 'Audio', 'Text', 'Transitions', 'Filters'].map((tab, i) => (
                                 <button key={tab} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${i === 0 ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
@@ -401,87 +403,82 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                             />
                         </div>
                     </div>
-                </div>
 
-                {/* CENTER: Player (Top) + Timeline (Bottom) */}
-                <div className="flex-1 flex flex-col min-w-0 bg-zinc-900/50">
-
-                    {/* TOP: Player */}
-                    <div className="flex-1 flex items-center justify-center relative min-h-0 p-4">
-                        {/* Player Container */}
-                        <div className="aspect-[9/16] h-full max-h-full shadow-2xl rounded-lg overflow-hidden ring-1 ring-zinc-800 bg-black relative">
-                            {/* Simple Player Header Overlay */}
-                            <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-black/80 to-transparent z-10 flex items-center justify-between px-3 pointer-events-none">
-                                <span className="text-[10px] text-white/50 font-mono">1080x1920</span>
+                    {/* CENTER: Player */}
+                    <div className="flex-1 flex flex-col min-w-0 bg-zinc-900/50 relative">
+                        <div className="flex-1 flex items-center justify-center p-8">
+                            {/* Player Container */}
+                            <div className="aspect-[9/16] h-full max-h-full shadow-2xl rounded-lg overflow-hidden ring-1 ring-zinc-800 bg-black relative">
+                                <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-black/80 to-transparent z-10 flex items-center justify-between px-3 pointer-events-none">
+                                    <span className="text-[10px] text-white/50 font-mono">1080x1920</span>
+                                </div>
+                                <PlayerPanel
+                                    script={currentScript}
+                                    activeVideoClips={activeVideoClips}
+                                    currentTime={currentTime}
+                                    isPlaying={isPlaying}
+                                    onTogglePlay={() => setIsPlaying(!isPlaying)}
+                                    currentSubtitle={getCurrentSubtitle()}
+                                    audioTracks={audioTracks}
+                                    videoTrackState={videoTrackState}
+                                    audioTrackState={audioTrackState}
+                                />
                             </div>
-
-                            <PlayerPanel
-                                script={currentScript}
-                                activeVideoClips={activeVideoClips}
-                                currentTime={currentTime}
-                                isPlaying={isPlaying}
-                                onTogglePlay={() => setIsPlaying(!isPlaying)}
-                                currentSubtitle={getCurrentSubtitle()}
-                                audioTracks={audioTracks}
-                                videoTrackState={videoTrackState}
-                                audioTrackState={audioTrackState}
-                            />
                         </div>
                     </div>
 
-                    {/* BOTTOM: Timeline (Fixed Height or Flex) */}
-                    <div className="h-80 border-t border-zinc-800 bg-zinc-950 shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20">
-                        {/* Toolbar Header (Optional) */}
-                        <div className="h-8 border-b border-zinc-800 flex items-center px-4 gap-4 bg-[#1e1e1e]">
-                            <div className="flex gap-2">
-                                <button className="text-zinc-400 hover:text-white" title="Undo"><Settings2 className="w-3 h-3" /></button>
-                            </div>
-                            <div className="h-3 w-px bg-zinc-700" />
-                            <span className="text-[10px] text-zinc-500">Timeline</span>
+                    {/* RIGHT: Properties */}
+                    <div className="w-80 border-l border-zinc-800 bg-zinc-950 shrink-0 flex flex-col z-10">
+                        <div className="h-10 border-b border-zinc-900 flex items-center px-4 bg-zinc-950/50">
+                            <span className="text-xs font-bold text-zinc-400">Properties</span>
                         </div>
-                        <div className="flex-1 min-h-0 bg-[#1e1e1e]">
-                            <TimelinePanel
-                                script={currentScript}
-                                videoTracks={videoTracks}
-                                audioTracks={audioTracks}
-                                currentTime={currentTime}
-                                duration={duration}
-                                onSeek={setCurrentTime}
-                                isPlaying={isPlaying}
-                                onTogglePlay={() => setIsPlaying(!isPlaying)}
-                                onUpdateVideoTracks={handleUpdateVideoTracks}
-                                onUpdateAudioTracks={handleUpdateAudioTracks}
-                                selectedClipId={selectedClipId}
-                                onSelectClip={setSelectedClipId}
-                                videoTrackState={videoTrackState}
-                                audioTrackState={audioTrackState}
-                                onToggleTrackState={toggleTrackState}
-
-                                // Mobile Drag Props
-                                externalDragItem={externalDragItem}
-                                onExternalDragEnd={() => setExternalDragItem(null)}
-                            />
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {selectedClip ? (
+                                <PropertiesPanel
+                                    selectedClip={selectedClip}
+                                    onUpdateClip={handleUpdateClip}
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2 p-8 text-center opacity-50">
+                                    <LayoutTemplate className="w-8 h-8 mb-2" />
+                                    <span className="text-xs">Select a clip on the timeline to edit properties.</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* RIGHT: Properties (Fixed Width, Sticky) */}
-                <div className="w-72 border-l border-zinc-800 bg-zinc-950 shrink-0 flex flex-col z-10">
-                    <div className="h-10 border-b border-zinc-900 flex items-center px-4 bg-zinc-950/50">
-                        <span className="text-xs font-bold text-zinc-400">Properties</span>
+                {/* BOTTOM HALF: Docked Timeline (Full Width) */}
+                <div className="h-[320px] bg-zinc-950 shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20 relative">
+                    <div className="h-8 border-b border-zinc-800 flex items-center px-4 gap-4 bg-[#1e1e1e]">
+                        <div className="flex gap-2">
+                            <button className="text-zinc-400 hover:text-white" title="Undo"><Settings2 className="w-3 h-3" /></button>
+                        </div>
+                        <div className="h-3 w-px bg-zinc-700" />
+                        <span className="text-[10px] text-zinc-500">Timeline</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {selectedClip ? (
-                            <PropertiesPanel
-                                selectedClip={selectedClip}
-                                onUpdateClip={handleUpdateClip}
-                            />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2 p-8 text-center opacity-50">
-                                <LayoutTemplate className="w-8 h-8 mb-2" />
-                                <span className="text-xs">Select a clip on the timeline to edit properties.</span>
-                            </div>
-                        )}
+                    <div className="flex-1 min-h-0 bg-[#1e1e1e]">
+                        <TimelinePanel
+                            script={currentScript}
+                            videoTracks={videoTracks}
+                            audioTracks={audioTracks}
+                            currentTime={currentTime}
+                            duration={duration}
+                            onSeek={setCurrentTime}
+                            isPlaying={isPlaying}
+                            onTogglePlay={() => setIsPlaying(!isPlaying)}
+                            onUpdateVideoTracks={handleUpdateVideoTracks}
+                            onUpdateAudioTracks={handleUpdateAudioTracks}
+                            selectedClipId={selectedClipId}
+                            onSelectClip={setSelectedClipId}
+                            videoTrackState={videoTrackState}
+                            audioTrackState={audioTrackState}
+                            onToggleTrackState={toggleTrackState}
+
+                            // Mobile Drag Props
+                            externalDragItem={externalDragItem}
+                            onExternalDragEnd={() => setExternalDragItem(null)}
+                        />
                     </div>
                 </div>
 

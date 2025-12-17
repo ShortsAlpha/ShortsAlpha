@@ -198,7 +198,7 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
                             type="file"
                             ref={fileInputRef}
                             className="hidden"
-                            accept="video/*,audio/*"
+                            accept="video/mp4,video/quicktime,video/webm,video/*,audio/mpeg,audio/wav,audio/m4a,audio/*"
                             onChange={handleUpload}
                         />
                     </div>
