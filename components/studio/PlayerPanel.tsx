@@ -34,8 +34,8 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 // Timeline Time: T, Clip Start: S -> Clip Time: T - S
                 const localTime = Math.max(0, currentTime - clip.start);
 
-                // Seek if desync > 0.2s
-                if (Math.abs(el.currentTime - localTime) > 0.2) {
+                // Seek if desync > 0.5s (Relaxed for iOS smoothness)
+                if (Math.abs(el.currentTime - localTime) > 0.5) {
                     el.currentTime = localTime;
                 }
 
@@ -57,7 +57,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 if (currentTime >= track.start && currentTime < track.start + track.duration) {
                     const localTime = Math.max(0, currentTime - track.start);
                     // Sync time
-                    if (Math.abs(el.currentTime - localTime) > 0.2) {
+                    if (Math.abs(el.currentTime - localTime) > 0.5) {
                         el.currentTime = localTime;
                     }
                     // Play if playing
@@ -101,9 +101,10 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                                 className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
                                 style={{
                                     zIndex: index, // Higher index = On Top
+                                    willChange: 'transform', // GPU Hint
                                     transform: `
                                         scale(${clip.scale ?? 1}) 
-                                        translate(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px) 
+                                        translate3d(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px, 0) 
                                         rotate(${clip.rotation ?? 0}deg)
                                     `
                                 }}
