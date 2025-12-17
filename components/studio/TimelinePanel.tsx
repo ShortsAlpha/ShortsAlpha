@@ -17,10 +17,33 @@ interface TimelinePanelProps {
     // Track State
     videoTrackState?: Record<number, { muted: boolean, hidden: boolean }>;
     audioTrackState?: Record<number, { muted: boolean, hidden: boolean }>;
-    onToggleTrackState?: (type: 'video' | 'audio', trackIndex: number, key: 'muted' | 'hidden') => void;
+    onToggleTrackState?: (type: 'video' | 'audio', index: number, field: 'muted' | 'hidden' | 'locked') => void;
+
+    // Mobile Drag Props
+    externalDragItem?: { url: string, type: 'video' | 'audio', title: string } | null;
+    onExternalDragEnd?: () => void;
 }
 
-export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, duration, onSeek, isPlaying, onTogglePlay, onUpdateVideoTracks, onUpdateAudioTracks, selectedClipId, onSelectClip, videoTrackState = {}, audioTrackState = {}, onToggleTrackState }: TimelinePanelProps) {
+export function TimelinePanel({
+    script,
+    videoTracks,
+    audioTracks,
+    currentTime,
+    duration,
+    onSeek,
+    isPlaying,
+    onTogglePlay,
+    onUpdateVideoTracks,
+    onUpdateAudioTracks,
+    selectedClipId,
+    onSelectClip,
+    videoTrackState = {},
+    audioTrackState = {},
+    onToggleTrackState,
+    externalDragItem,
+    onExternalDragEnd
+}: TimelinePanelProps) {
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // DEBUG LOGGER
     const [logs, setLogs] = useState<string[]>([]);
@@ -39,6 +62,7 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
     // Sync ref with state is manual in handlers to ensure speed.
 
     // Moving State (Manual Drag)
+
     const [moving, setMoving] = useState<{
         id: string;
         type: 'video' | 'audio';
@@ -67,9 +91,63 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
     // Snap Line State
     const [snapLine, setSnapLine] = useState<number | null>(null);
 
+    // Handle EXTERNAL Touch Drop
+    useEffect(() => {
+        if (!externalDragItem) return;
+
+        const handleExternalTouchEnd = (e: TouchEvent) => {
+            const touch = e.changedTouches[0];
+            const clientX = touch.clientX;
+            const clientY = touch.clientY;
+
+            // Check collision with Timeline Container
+            if (scrollContainerRef.current) {
+                const rect = scrollContainerRef.current.getBoundingClientRect();
+                if (
+                    clientX >= rect.left &&
+                    clientX <= rect.right &&
+                    clientY >= rect.top &&
+                    clientY <= rect.bottom
+                ) {
+                    // Valid Drop!
+                    const scrollLeft = scrollContainerRef.current.scrollLeft;
+                    const relativeX = clientX - rect.left + scrollLeft;
+                    const dropTime = Math.max(0, relativeX / PIXELS_PER_SECOND);
+
+                    // Add Track
+                    const newId = Math.random().toString(36).substr(2, 9);
+                    const newTrack = {
+                        id: newId,
+                        url: externalDragItem.url,
+                        type: externalDragItem.type,
+                        start: dropTime,
+                        duration: 5, // Default
+                        trackIndex: 0,
+                        volume: 1.0
+                    };
+
+                    if (externalDragItem.type === 'video') {
+                        onUpdateVideoTracks([...videoTracks, newTrack]);
+                    } else {
+                        onUpdateAudioTracks && onUpdateAudioTracks([...audioTracks, newTrack]);
+                    }
+                }
+            }
+            // Always clear drag state
+            onExternalDragEnd && onExternalDragEnd();
+        };
+
+        window.addEventListener('touchend', handleExternalTouchEnd);
+        return () => window.removeEventListener('touchend', handleExternalTouchEnd);
+    }, [externalDragItem, videoTracks, audioTracks, onUpdateVideoTracks, onUpdateAudioTracks, onExternalDragEnd, PIXELS_PER_SECOND]);
+
+    // Internal Drag Logic
     useEffect(() => {
         if (moving) {
             const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+                // IMPORTANT: Prevent scrolling while dragging
+                if (e.cancelable) e.preventDefault();
+
                 const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
                 const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
 
@@ -279,12 +357,15 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
             window.addEventListener('mouseup', handleMouseUp);
             window.addEventListener('touchmove', handleMouseMove as any, { passive: false });
             window.addEventListener('touchend', handleMouseUp);
+            // Also need to handle touchcancel
+            window.addEventListener('touchcancel', handleMouseUp);
 
             return () => {
                 window.removeEventListener('mousemove', handleMouseMove);
                 window.removeEventListener('mouseup', handleMouseUp);
                 window.removeEventListener('touchmove', handleMouseMove as any);
                 window.removeEventListener('touchend', handleMouseUp);
+                window.removeEventListener('touchcancel', handleMouseUp);
             };
         }
     }, [resizing, moving, videoTracks, audioTracks, onUpdateVideoTracks, onUpdateAudioTracks, PIXELS_PER_SECOND]);
@@ -601,20 +682,34 @@ export function TimelinePanel({ script, videoTracks, audioTracks, currentTime, d
                 </div>
 
                 {/* RIGHT: Timeline Scroll Area */}
-                <div className="flex-1 overflow-x-auto overflow-y-hidden relative bg-[#131313] custom-scrollbar flex flex-col">
+                <div
+                    ref={scrollContainerRef}
+                    className="flex-1 overflow-x-auto overflow-y-hidden relative bg-[#131313] custom-scrollbar flex flex-col"
+                >
                     <div
                         className="h-full relative flex flex-col min-w-full"
                         style={{ width: `${timelineWidth}px` }}
-                        onClick={(e) => {
-                            if ((e.target as HTMLElement).closest('.clip-item')) return;
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const clickX = e.clientX - rect.left + e.currentTarget.scrollLeft;
-                            const newTime = (clickX / PIXELS_PER_SECOND);
-                            onSeek(Math.min(Math.max(0, newTime), Math.max(duration, newTime)));
-                        }}
                     >
                         {/* Time Ruler */}
-                        <div className="h-6 border-b border-[#333] flex items-end text-[9px] text-zinc-500 font-mono select-none bg-[#1e1e1e] sticky top-0 z-10 w-full">
+                        <div
+                            className="h-6 border-b border-[#333] flex items-end text-[9px] text-zinc-500 font-mono select-none bg-[#1e1e1e] sticky top-0 z-10 w-full cursor-pointer hover:bg-[#252525]"
+                            onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const clickX = e.clientX - rect.left + e.currentTarget.scrollLeft; // Ruler is sticky, check offset carefully
+                                // Actually, e.currentTarget is the sticky header. Its rect.left depends on viewport.
+                                // But the clickX logic needs to map to TIMELINE SCROLL.
+                                // The header is sticky, so it doesn't scroll with the body content horizontally? 
+                                // Wait, overflow-x is on the PARENT of this div?
+                                // Parent (line 604): overflow-x-auto.
+                                // This div (line 605): min-w-full.
+                                // Sticky (line 617): sticky top-0. 
+                                // Sticky works vertically. Horizontally it stays with content.
+                                // So e.clientX - rect.left gives X relative to the ruler element.
+                                // If the ruler element is full width, it should work.
+                                const newTime = (e.nativeEvent.offsetX / PIXELS_PER_SECOND);
+                                onSeek(Math.min(Math.max(0, newTime), Math.max(duration, newTime)));
+                            }}
+                        >
                             {Array.from({ length: Math.ceil(visualDuration / 5) }).map((_, i) => (
                                 <div key={i} className="absolute bottom-0 flex items-end pb-1 border-l border-[#333]" style={{ left: `${i * 5 * PIXELS_PER_SECOND}px`, height: '50%' }}>
                                     <span className="pl-1 text-zinc-600">{i * 5}s</span>

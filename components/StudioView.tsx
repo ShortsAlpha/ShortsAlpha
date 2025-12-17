@@ -3,7 +3,7 @@ import { AssetPanel } from "./studio/AssetPanel";
 import { PlayerPanel } from "./studio/PlayerPanel";
 import { ScriptPanel } from "./studio/ScriptPanel";
 import { TimelinePanel } from "./studio/TimelinePanel";
-import { Download, ChevronLeft, LayoutTemplate, Settings2, Volume2 } from "lucide-react";
+import { Download, ChevronLeft, LayoutTemplate, Settings2, Volume2, Video, Music } from "lucide-react";
 import axios from "axios";
 import { PropertiesPanel } from "./studio/PropertiesPanel";
 import { ExportModal, ExportStatus } from "./studio/ExportModal";
@@ -40,7 +40,8 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     const [videoTrackState, setVideoTrackState] = useState<Record<number, { muted: boolean, hidden: boolean }>>({});
     const [audioTrackState, setAudioTrackState] = useState<Record<number, { muted: boolean, hidden: boolean }>>({});
 
-    const toggleTrackState = (type: 'video' | 'audio', trackIndex: number, key: 'muted' | 'hidden') => {
+    const toggleTrackState = (type: 'video' | 'audio', trackIndex: number, key: 'muted' | 'hidden' | 'locked') => {
+        if (key === 'locked') return; // Not implemented yet
         if (type === 'video') {
             setVideoTrackState(prev => ({
                 ...prev,
@@ -241,6 +242,25 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
     const [finalDownloadUrl, setFinalDownloadUrl] = useState<string | null>(null);
 
+    const [externalDragItem, setExternalDragItem] = useState<{ url: string, type: 'video' | 'audio', title: string } | null>(null);
+    const [dragPosition, setDragPosition] = useState<{ x: number, y: number } | null>(null);
+
+    // Track Drag Position
+    useEffect(() => {
+        if (!externalDragItem) {
+            setDragPosition(null);
+            return;
+        }
+
+        const handleTouchMove = (e: TouchEvent) => {
+            const touch = e.touches[0];
+            setDragPosition({ x: touch.clientX, y: touch.clientY });
+        };
+
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        return () => window.removeEventListener('touchmove', handleTouchMove);
+    }, [externalDragItem]);
+
     const handleExport = async () => {
         setIsExportModalOpen(true);
         setExportStatus('uploading');
@@ -438,30 +458,92 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                             </div>
                         </div>
                     )}
-
+                    {!selectedClipId && (
+                        <div className="flex-1 border-t border-zinc-800 flex flex-col">
+                            <ScriptPanel
+                                script={currentScript}
+                                onUpdateScript={setCurrentScript}
+                                onAudioGenerated={setVoiceoverAudio}
+                            />
+                        </div>
+                    )}
                 </div>
 
-                {/* BOTTOM SECTION: Timeline */}
-                <div className="h-72 bg-zinc-950 shrink-0">
-                    <TimelinePanel
-                        script={currentScript}
-                        videoTracks={videoTracks}
-                        audioTracks={audioTracks}
-                        currentTime={currentTime}
-                        duration={duration}
-                        onSeek={setCurrentTime}
-                        isPlaying={isPlaying}
-                        onTogglePlay={() => setIsPlaying(!isPlaying)}
-                        onUpdateVideoTracks={handleUpdateVideoTracks}
-                        onUpdateAudioTracks={handleUpdateAudioTracks}
-                        selectedClipId={selectedClipId}
-                        onSelectClip={setSelectedClipId}
-                        videoTrackState={videoTrackState}
-                        audioTrackState={audioTrackState}
-                        onToggleTrackState={toggleTrackState}
-                    />
+                {/* CENTER: Player + Timeline */}
+                <div className="flex-1 flex flex-col min-w-0">
+                    {/* TOP SECTION: Player */}
+                    <div className="flex-1 flex min-h-0 border-b border-zinc-800">
+                        {/* CENTER/RIGHT: Preview Player */}
+                        <div className="flex-1 bg-zinc-900 relative flex flex-col min-w-0">
+                            <div className="flex items-center justify-between p-2 px-4 border-b border-zinc-800 bg-zinc-950/50 shrink-0">
+                                <span className="text-xs text-zinc-500">Player</span>
+                                <div className="flex gap-2">
+                                    <span className="text-xs text-zinc-600">1080p</span>
+                                    <span className="text-xs text-zinc-600">Fit</span>
+                                </div>
+                            </div>
+                            <div className="flex-1 flex items-center justify-center bg-zinc-950 overflow-hidden relative">
+                                {/* Player Container: constrained to 9:16 but max height/width */}
+                                <div className="aspect-[9/16] h-full max-w-full max-h-full shadow-2xl rounded-sm overflow-hidden ring-1 ring-zinc-800 bg-black">
+                                    <PlayerPanel
+                                        script={currentScript}
+                                        activeVideoClips={activeVideoClips}
+                                        currentTime={currentTime}
+                                        isPlaying={isPlaying}
+                                        onTogglePlay={() => setIsPlaying(!isPlaying)}
+                                        currentSubtitle={getCurrentSubtitle()}
+                                        audioTracks={audioTracks}
+                                        videoTrackState={videoTrackState}
+                                        audioTrackState={audioTrackState}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* BOTTOM SECTION: Timeline */}
+                    <div className="h-72 bg-zinc-950 shrink-0">
+                        <div className="flex-1 min-h-0 bg-[#1e1e1e]">
+                            <TimelinePanel
+                                script={currentScript}
+                                videoTracks={videoTracks}
+                                audioTracks={audioTracks}
+                                currentTime={currentTime}
+                                duration={duration}
+                                onSeek={setCurrentTime}
+                                isPlaying={isPlaying}
+                                onTogglePlay={() => setIsPlaying(!isPlaying)}
+                                onUpdateVideoTracks={handleUpdateVideoTracks}
+                                onUpdateAudioTracks={handleUpdateAudioTracks}
+                                selectedClipId={selectedClipId}
+                                onSelectClip={setSelectedClipId}
+                                videoTrackState={videoTrackState}
+                                audioTrackState={audioTrackState}
+                                onToggleTrackState={toggleTrackState}
+
+                                // Mobile Drag Props
+                                externalDragItem={externalDragItem}
+                                onExternalDragEnd={() => setExternalDragItem(null)}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {/* Drag Ghost Element (Mobile) */}
+            {externalDragItem && (
+                <div
+                    className="fixed z-50 pointer-events-none p-2 bg-zinc-800 rounded-lg shadow-2xl border border-indigo-500 opacity-80 flex items-center gap-2"
+                    style={{
+                        left: (dragPosition?.x || 0) + 10,
+                        top: (dragPosition?.y || 0) + 10,
+                        transform: 'translate(-50%, -50%)'
+                    }}
+                >
+                    {externalDragItem.type === 'video' ? <Video className="w-4 h-4 text-white" /> : <Music className="w-4 h-4 text-white" />}
+                    <span className="text-xs text-white font-bold">{externalDragItem.title}</span>
+                </div>
+            )}
         </div>
     );
 }

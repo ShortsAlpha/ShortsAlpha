@@ -6,6 +6,9 @@ interface AssetPanelProps {
     onSelectBackground: (url: string) => void;
     currentBackground: string | null;
     onAssetUploaded?: (key: string) => void;
+
+    // Mobile Drag Trigger
+    onExternalDragStart?: (asset: { url: string, type: 'video' | 'audio', title: string }) => void;
 }
 
 // Mock Stock Assets
@@ -17,7 +20,7 @@ const STOCK_ASSETS = [
 
 type Tab = 'media' | 'library';
 
-export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploaded }: AssetPanelProps) {
+export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploaded, onExternalDragStart }: AssetPanelProps) {
     const [activeTab, setActiveTab] = useState<Tab>('media');
     const [search, setSearch] = useState("");
 
@@ -27,6 +30,44 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
 
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // LONG PRESS LOGIC
+    const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const touchStartPosRef = useRef<{ x: number, y: number } | null>(null);
+
+    const handleTouchStart = (vid: any, e: React.TouchEvent) => {
+        const touch = e.touches[0];
+        touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+        longPressTimerRef.current = setTimeout(() => {
+            // Trigger Drag
+            if (onExternalDragStart) {
+                // Haptic feedback
+                if (navigator.vibrate) navigator.vibrate(50);
+                onExternalDragStart({ url: vid.url, type: vid.type, title: vid.title });
+            }
+        }, 600); // 600ms hold
+    };
+
+    const handleTouchEnd = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!touchStartPosRef.current) return;
+        const touch = e.touches[0];
+        const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+        const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+
+        // Cancel if moved too much (scrolling)
+        if (dx > 10 || dy > 10) {
+            handleTouchEnd();
+        }
+    };
+
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -80,6 +121,11 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
                     <button
                         key={vid.id}
                         onClick={() => onSelectBackground(vid.url)}
+                        // Touch / Long Press Logic
+                        onTouchStart={(e) => handleTouchStart(vid, e)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchMove}
+                        onTouchCancel={handleTouchEnd}
                         className={`group relative aspect-[9/16] rounded-xl overflow-hidden border-2 transition-all text-left ${currentBackground === vid.url
                             ? "border-indigo-500 ring-2 ring-indigo-500/20"
                             : "border-transparent hover:border-zinc-700"
