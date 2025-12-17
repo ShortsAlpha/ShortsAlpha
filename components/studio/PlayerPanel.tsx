@@ -106,8 +106,19 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                             loop={false}
                             playsInline
                             crossOrigin="anonymous"
-                            muted={false} // Allow sound (mixed via volume)
+                            muted={false}
+                            onError={(e) => {
+                                const err = e.currentTarget.error;
+                                console.error("Video Error:", clip.url, err);
+                                // Show error on UI
+                                const span = document.getElementById(`debug-${clip.id}`);
+                                if (span) span.style.display = 'block';
+                                if (span) span.innerText = `ERR: ${err?.code} - ${err?.message}`;
+                            }}
                         />
+                        <div id={`debug-${clip.id}`} className="hidden absolute top-0 left-0 bg-red-600 text-white text-[10px] p-1 z-[100]">
+                            Loading...
+                        </div>
                     );
                 })
             ) : (

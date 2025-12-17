@@ -120,7 +120,9 @@ export function ExportModal({ isOpen, status, downloadUrl, onClose, onDownload }
                                 <AlertCircle className="w-5 h-5 shrink-0" />
                                 <div className="text-sm">
                                     <span className="font-bold block">Render Failed</span>
-                                    Something went wrong. Please try again.
+                                    <span className="font-bold block">Render Failed</span>
+                                    {/* TODO: Pass actual error message via props or state */}
+                                    Check console logs for details. (API Access / CORS?)
                                 </div>
                             </div>
                         )}
