@@ -12,6 +12,8 @@ interface TimelinePanelProps {
     onTogglePlay: () => void;
     onUpdateVideoTracks: (tracks: any[]) => void;
     onUpdateAudioTracks?: (tracks: any[]) => void;
+    onUpdateTextTracks?: (tracks: any[]) => void; // NEW
+    textTracks?: any[]; // NEW
     selectedClipId?: string | null;
     onSelectClip?: (id: string | null) => void;
 
@@ -25,12 +27,13 @@ interface TimelinePanelProps {
     onToggleTrackState?: (type: 'video' | 'audio', index: number, field: 'muted' | 'hidden' | 'locked') => void;
 
     // Mobile Drag Props
-    externalDragItem?: { url: string, type: 'video' | 'audio', title: string } | null;
+    externalDragItem?: { url: string, type: 'video' | 'audio' | 'text', title: string } | null;
     onExternalDragEnd?: () => void;
 }
 
 // Helper to get duration (Defined outside to avoid dependency loops)
-const getMediaDuration = (url: string, type: 'video' | 'audio'): Promise<number> => {
+const getMediaDuration = (url: string, type: 'video' | 'audio' | 'text'): Promise<number> => {
+    if (type === 'text') return Promise.resolve(5); // Default text duration
     return new Promise((resolve) => {
         const el = document.createElement(type);
         el.src = url;
@@ -50,6 +53,8 @@ export function TimelinePanel({
     onTogglePlay,
     onUpdateVideoTracks,
     onUpdateAudioTracks,
+    onUpdateTextTracks, // NEW
+    textTracks = [], // NEW
     selectedClipId,
     onSelectClip,
     videoTrackState = {},
@@ -75,7 +80,7 @@ export function TimelinePanel({
 
     // Drag & Drop State
     // Format: { id: string, type: 'video' | 'audio', offsetSeconds: number }
-    const [draggedClipId, setDraggedClipId] = useState<{ id: string, type: 'video' | 'audio', offsetSeconds: number } | null>(null);
+    const [draggedClipId, setDraggedClipId] = useState<{ id: string, type: 'video' | 'audio' | 'text', offsetSeconds: number } | null>(null);
     const draggedClipRef = useRef<{ id: string, type: 'video' | 'audio', offsetSeconds: number } | null>(null);
     // Sync ref with state is manual in handlers to ensure speed.
 
@@ -86,7 +91,7 @@ export function TimelinePanel({
     const [activeTool, setActiveTool] = useState<'select' | 'razor'>('select');
 
     // Context Menu State
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, clipId: string, type: 'video' | 'audio' } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, clipId: string, type: 'video' | 'audio' | 'text' } | null>(null);
 
     // Razor Hover State (for guide line)
     const [razorLineX, setRazorLineX] = useState<number | null>(null);
@@ -111,8 +116,8 @@ export function TimelinePanel({
         setContextMenu(null);
     };
 
-    const handleSplit = (clipId: string, type: 'video' | 'audio', splitTime: number) => {
-        const tracks = type === 'video' ? videoTracks : audioTracks;
+    const handleSplit = (clipId: string, type: 'video' | 'audio' | 'text', splitTime: number) => {
+        const tracks = type === 'video' ? videoTracks : (type === 'audio' ? audioTracks : (textTracks || []));
         const clipIndex = tracks.findIndex(t => t.id === clipId);
         if (clipIndex === -1) return;
 
@@ -140,8 +145,10 @@ export function TimelinePanel({
 
         if (type === 'video') {
             onUpdateVideoTracks(newTracks);
-        } else {
-            onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
+        } else if (type === 'audio' && onUpdateAudioTracks) {
+            onUpdateAudioTracks(newTracks);
+        } else if (type === 'text' && onUpdateTextTracks) {
+            onUpdateTextTracks(newTracks);
         }
     };
 
@@ -180,7 +187,7 @@ export function TimelinePanel({
 
     const [moving, setMoving] = useState<{
         id: string;
-        type: 'video' | 'audio';
+        type: 'video' | 'audio' | 'text';
         initialX: number;
         initialY: number;
         initialStart: number;
@@ -191,7 +198,7 @@ export function TimelinePanel({
     // Resize State
     const [resizing, setResizing] = useState<{
         id: string;
-        type: 'video' | 'audio';
+        type: 'video' | 'audio' | 'text';
         edge: 'start' | 'end';
         initialX: number;
         initialStart: number;
@@ -202,7 +209,7 @@ export function TimelinePanel({
 
 
     // Live Preview State (Where the clip will drop)
-    const [dragPreview, setDragPreview] = useState<{ trackIndex: number, start: number, id: string, type: 'video' | 'audio', duration: number } | null>(null);
+    const [dragPreview, setDragPreview] = useState<{ trackIndex: number, start: number, id: string, type: 'video' | 'audio' | 'text', duration: number } | null>(null);
 
     // Snap Line State
     const [snapLine, setSnapLine] = useState<number | null>(null);
@@ -262,11 +269,13 @@ export function TimelinePanel({
     // Refs for accessing state inside event listeners without re-binding
     const videoTracksRef = useRef(videoTracks);
     const audioTracksRef = useRef(audioTracks);
+    const textTracksRef = useRef(textTracks);
 
     useEffect(() => {
         videoTracksRef.current = videoTracks;
         audioTracksRef.current = audioTracks;
-    }, [videoTracks, audioTracks]);
+        textTracksRef.current = textTracks;
+    }, [videoTracks, audioTracks, textTracks]);
 
     // Handle Global Mouse Move (for Dragging & Resizing)
     useEffect(() => {
@@ -303,6 +312,7 @@ export function TimelinePanel({
                 // Use Refs to avoid Effect re-runs
                 const currentVideoTracks = videoTracksRef.current;
                 const currentAudioTracks = audioTracksRef.current;
+                const currentTextTracks = textTracksRef.current || [];
 
                 if (scrollContainerRef.current) {
                     // Auto-scroll logic could go here
@@ -393,21 +403,36 @@ export function TimelinePanel({
                                     trackIndex: newTrackIndex
                                 };
                                 onUpdateVideoTracks(newTracks);
-                            } else {
-                                // Collision! Maybe just update Start Time if that doesn't collide?
-                                // Or fully block? User said "don't overlap".
-                                // Let's try to at least update start time on CURRENT track if visual vertical move fails.
+                            }
+                        }
+                    } else if (moving.type === 'text') {
+                        const TRACK_HEIGHT = 48 + 4; // Text tracks height (h-12 = 48px)
+                        // Text Layers are reversed [1, 0].
+                        // Drag Up (Negative Y) -> Index Increase (0->1).
+                        const trackDiff = Math.round(deltaY / TRACK_HEIGHT);
+                        // Invert logic for reversed stack
+                        let newTrackIndex = (moving.originalTrackIndex || 0) - trackDiff;
+                        newTrackIndex = Math.max(0, Math.min(newTrackIndex, 4)); // Arbitrary limit 5 text tracks
 
-                                // Check collision on CURRENT/OLD track
-                                const oldTrackIndex = moving.trackIndex || 0; // The one safely established
-                                // Actually moving.originalTrackIndex is start.
-                                // Let's stick to old track logic if new fails.
+                        const clipIndex = currentTextTracks.findIndex(c => c.id === moving.id);
+                        if (clipIndex !== -1) {
+                            const newTracks = [...currentTextTracks];
+                            // Collision Check
+                            const targetTrackClips = currentTextTracks.filter(c => c.id !== moving.id && (c.trackIndex || 0) === newTrackIndex);
+                            const clipDuration = newTracks[clipIndex].duration;
+                            const hasCollision = targetTrackClips.some(c => {
+                                const cEnd = c.start + c.duration;
+                                const newEnd = newStart + clipDuration;
+                                return !(newEnd <= c.start || newStart >= cEnd);
+                            });
 
-                                // Re-Check collision on ORIGINAL track with NEW Start
-                                const originalTrackClips = currentVideoTracks.filter(c => c.id !== moving.id && (c.trackIndex || 0) === moving.originalTrackIndex); // Use current established track?
-                                // moving state doesn't update.
-                                // We are updating 'newTracks' via prop.
-                                // Let's just BLOCK if collision on target.
+                            if (!hasCollision) {
+                                newTracks[clipIndex] = {
+                                    ...newTracks[clipIndex],
+                                    start: newStart,
+                                    trackIndex: newTrackIndex
+                                };
+                                onUpdateTextTracks && onUpdateTextTracks(newTracks);
                             }
                         }
                     } else {
@@ -542,6 +567,19 @@ export function TimelinePanel({
                         clip.duration = finalDuration;
                         onUpdateVideoTracks(newTracks);
 
+                    } else if (resizing.type === 'text') {
+                        const clipIndex = currentTextTracks.findIndex(t => t.id === resizing.id);
+                        if (clipIndex === -1) return;
+                        const newTracks = [...currentTextTracks];
+                        const clip = newTracks[clipIndex];
+
+                        if (finalDuration < 0.1) finalDuration = 0.1;
+                        // No max duration for text (or maybe infinite?)
+
+                        clip.start = finalStart;
+                        clip.duration = finalDuration;
+                        onUpdateTextTracks && onUpdateTextTracks(newTracks);
+
                     } else {
                         const clipIndex = currentAudioTracks.findIndex(t => t.id === resizing.id);
                         if (clipIndex === -1) return;
@@ -624,7 +662,7 @@ export function TimelinePanel({
     }, [isScrubbing, onSeek, duration, PIXELS_PER_SECOND]);
 
     // Handle Start Move (Mouse/Touch Down on Clip Body)
-    const handleMoveStart = (e: React.MouseEvent | React.TouchEvent, clipId: string, type: 'video' | 'audio', start: number, trackIndex: number) => {
+    const handleMoveStart = (e: React.MouseEvent | React.TouchEvent, clipId: string, type: 'video' | 'audio' | 'text', start: number, trackIndex: number) => {
         // e.preventDefault(); // Don't prevent default immediately if we want scrolling, but for DND we usually do.
         e.stopPropagation();
 
@@ -648,7 +686,7 @@ export function TimelinePanel({
         onSelectClip && onSelectClip(clipId);
     };
 
-    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio', edge: 'start' | 'end', start: number, duration: number, maxDuration?: number) => {
+    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio' | 'text', edge: 'start' | 'end', start: number, duration: number, maxDuration?: number) => {
         // IMPORTANT: Prevent scrolling or other gestures
         // e.preventDefault(); // React synthetic events might warn, but let's try just stopPropagation first.
         // Actually for direct touch manipulation we often want preventDefault to stop scrolling.
@@ -668,7 +706,7 @@ export function TimelinePanel({
         });
     };
 
-    const handleDragStart = (e: React.DragEvent, clipId: string, type: 'video' | 'audio', duration: number, trackIndex: number) => {
+    const handleDragStart = (e: React.DragEvent, clipId: string, type: 'video' | 'audio' | 'text', duration: number, trackIndex: number) => {
         console.log("DRAG START", clipId, type, trackIndex);
 
         // REMOVED LOCK STATE CHECK
@@ -827,6 +865,13 @@ export function TimelinePanel({
     const audioLayerCount = showExtraAudio ? maxAudioTrack + 2 : maxAudioTrack + 1;
     const audioLayers = Array.from({ length: audioLayerCount }, (_, i) => i);
 
+    // Text (Subtitles)
+    const maxTextTrack = Math.max(0, ...(textTracks || []).map(t => t.trackIndex || 0));
+    const showExtraText = draggedClipId?.type === 'text';
+    const textLayerCount = showExtraText ? maxTextTrack + 2 : maxTextTrack + 1;
+    const textLayers = Array.from({ length: textLayerCount }, (_, i) => i).reverse(); // Stack up? Or down? Usually up.
+
+
     return (
         <div className="h-full flex flex-col bg-[#1e1e1e] border-t border-[#333] relative">
 
@@ -897,6 +942,25 @@ export function TimelinePanel({
                 {/* LEFT: Track Headers (Fixed Width) */}
                 <div ref={headerContainerRef} className="w-[120px] bg-[#1e1e1e] border-r border-[#333] flex flex-col shrink-0 z-20 mt-[24px] overflow-hidden" /* mt-6 matches timeline ruler height */>
                     <div className="flex-1 overflow-hidden flex flex-col py-4 space-y-4"> {/* Padding matches timeline content padding */}
+
+                        {/* Text Headers */}
+                        <div className="flex flex-col gap-1 pb-4 border-b border-[#333]">
+                            {textLayers.map(trackIdx => (
+                                <div key={`theader-${trackIdx}`} className="h-12 flex flex-col justify-center px-2">
+                                    <div className="flex items-center justify-between text-zinc-500 mb-1">
+                                        <span className="text-[10px] font-bold text-orange-400">T{trackIdx}</span>
+                                        <div className="flex items-center gap-2">
+                                            {/* Hide Toggle? Locked? */}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button className="text-zinc-600 hover:text-white" title="Lock Track">
+                                            {/* Lock Icon */}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
 
                         {/* Video Headers (Reverse Order: Top Layer First) */}
                         <div className="flex flex-col gap-1">
@@ -1022,6 +1086,80 @@ export function TimelinePanel({
 
                         {/* Tracks Content */}
                         <div className="p-4 pt-4 space-y-4 flex-1">
+
+                            {/* Text Tracks */}
+                            <div className="flex flex-col gap-1 pb-4 border-b border-[#333]">
+                                {textLayers.map(trackIdx => (
+                                    <div
+                                        key={`ttrack-${trackIdx}`}
+                                        className="h-12 relative w-full transition-colors bg-[#1e1e1e]/30 border-b border-[#333]/30 hover:bg-[#333]/20"
+                                        onDragOver={(e) => handleDragOver(e, trackIdx)}
+                                        onDrop={(e) => handleDrop(e, trackIdx)}
+                                    >
+                                        {/* Ghost / Preview Clip */}
+                                        {dragPreview && dragPreview.type === 'text' && dragPreview.trackIndex === trackIdx && (
+                                            <div
+                                                className="absolute top-0.5 bottom-0.5 rounded-sm bg-orange-500/30 border border-orange-400/50 z-20 pointer-events-none"
+                                                style={{
+                                                    left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
+                                                    width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
+                                                }}
+                                            />
+                                        )}
+
+                                        {(textTracks || []).filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => (
+                                            <div
+                                                key={clip.id}
+                                                onContextMenu={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    onSelectClip && onSelectClip(clip.id);
+                                                    setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'text' });
+                                                }}
+                                                onMouseDown={(e) => {
+                                                    if (activeTool === 'razor') return;
+                                                    handleMoveStart(e, clip.id, 'text', clip.start, trackIdx);
+                                                }}
+                                                onTouchStart={(e) => {
+                                                    if (activeTool === 'razor') return;
+                                                    handleMoveStart(e, clip.id, 'text', clip.start, trackIdx);
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                }}
+                                                className={`absolute top-0.5 bottom-0.5 rounded-sm bg-[#5E2A1E] border border-[#7A3A2A] overflow-hidden z-10 select-none group touch-pan-y
+                                                ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
+                                                ${selectedClipId === clip.id ? 'ring-2 ring-orange-300 z-20' : ''}
+                                                ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
+                                                `}
+                                                style={{
+                                                    left: `${clip.start * PIXELS_PER_SECOND}px`,
+                                                    width: `${clip.duration * PIXELS_PER_SECOND}px`,
+                                                }}
+                                            >
+                                                {/* Resize Handles */}
+                                                <div
+                                                    className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+                                                    onMouseDown={(e) => handleResizeStart(e, clip.id, 'text', 'start', clip.start, clip.duration, clip.duration)}
+                                                >
+                                                    <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                </div>
+
+                                                <div className="relative px-2 h-full flex items-center pointer-events-none">
+                                                    <span className="text-[10px] text-orange-100 truncate">{clip.text || "Subtitle"}</span>
+                                                </div>
+
+                                                <div
+                                                    className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+                                                    onMouseDown={(e) => handleResizeStart(e, clip.id, 'text', 'end', clip.start, clip.duration, clip.duration)}
+                                                >
+                                                    <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
 
                             {/* Video Tracks (Reverse Order to Match Headers) */}
                             <div className="flex flex-col gap-1">
@@ -1255,23 +1393,7 @@ export function TimelinePanel({
                                 ))}
                             </div>
 
-                            {/* Subtitles Track */}
-                            {script.length > 0 && (
-                                <div className="h-8 mt-4 relative w-full">
-                                    {script.map((scene, i) => (
-                                        <div
-                                            key={i}
-                                            className="absolute top-0.5 bottom-0.5 rounded-sm bg-[#5E2A1E] border border-[#7A3A2A] flex items-center justify-center px-2 cursor-pointer hover:brightness-110"
-                                            style={{
-                                                left: `${(i * 3) * PIXELS_PER_SECOND}px`,
-                                                width: `${3 * PIXELS_PER_SECOND}px`
-                                            }}
-                                        >
-                                            <span className="text-[9px] text-orange-100 truncate">{scene.text}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+
 
                         </div>
 

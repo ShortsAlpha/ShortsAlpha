@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2 } from "lucide-react";
 
 interface PlayerPanelProps {
@@ -14,9 +14,30 @@ interface PlayerPanelProps {
     // Track State
     videoTrackState?: Record<number, { muted: boolean, hidden: boolean }>;
     audioTrackState?: Record<number, { muted: boolean, hidden: boolean }>;
+
+    // Text Interaction
+    textTracks?: any[];
+    onUpdateTextTracks?: (tracks: any[]) => void;
+    selectedClipId?: string | null;
+    onSelectClip?: (id: string | null) => void;
 }
 
-export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTime, isPlaying, onTogglePlay, currentSubtitle, audioTracks = [], videoTrackState = {}, audioTrackState = {} }: PlayerPanelProps) {
+export function PlayerPanel({
+    script,
+    activeVideoClips = [],
+    audioUrl,
+    currentTime,
+    isPlaying,
+    onTogglePlay,
+    currentSubtitle,
+    audioTracks = [],
+    videoTrackState = {},
+    audioTrackState = {},
+    textTracks = [],
+    onUpdateTextTracks,
+    selectedClipId,
+    onSelectClip
+}: PlayerPanelProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Refs for Video/Audio Elements
@@ -72,15 +93,8 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
             gainNodesRef.current[id] = gainNode;
         } catch (e) {
             console.warn("Web Audio Connection Failed (likely CORS):", id, e);
-            // Fallback: Normal volume will work (capped at 1.0) if connection fails?
-            // If createMediaElementSource fails, the element keeps playing to destination? 
-            // No, creating source 'hijacks' the output. If it fails, usually it throws.
         }
     };
-
-    // Dispose nodes when clip removed?
-    // Complex with Re-renders. For now, we rely on refs overriding. 
-    // Ideally we disconnect. But React ref callback handles mount/unmount.
 
     // Sync Playback & Time & Volume
     useEffect(() => {
@@ -99,6 +113,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
 
                 // Time Sync
                 const localTime = Math.max(0, currentTime - clip.start);
+                // Allow small drift for performance, but sync logic needs to be tight
                 if (Math.abs(el.currentTime - localTime) > 0.5) {
                     el.currentTime = localTime;
                 }
@@ -107,27 +122,15 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 if (!isPlaying && !el.paused) el.pause();
 
                 // Volume (GAIN)
-                // If Web Audio Active: Set Gain. Set Element Volume to 1 (passed to source).
-                // If Web Audio Failed: Set Element Volume (capped at 1).
-
                 const trackIdx = clip.trackIndex || 0;
                 const isTrackMuted = videoTrackState[trackIdx]?.muted;
                 const targetVol = isTrackMuted ? 0 : (clip.volume ?? 1);
 
                 if (gainNodesRef.current[clip.id]) {
-                    // Amplification Enabled
                     gainNodesRef.current[clip.id].gain.value = targetVol;
-                    // Don't touch el.volume (should be 1 to send full signal to node? Or does el.volume affect source?)
-                    // MDN: element.volume applies BEFORE MediaElementAudioSourceNode for some browsers, or NOT?
-                    // Usually: source node takes RAW output. element.volume controls 'native' output if not connected?
-                    // Actually: modifying el.volume DOES affect the source node signal in Chrome.
-                    // So we must set el.volume = 1 if we want GainNode to handle full range?
-                    // No, if we want Gain 2.0. Signal 1.0 * 2.0 = 2.0.
-                    // So el.volume should be 1.
                     el.volume = 1;
-                    el.muted = false; // Must be unmuted
+                    el.muted = false;
                 } else {
-                    // Fallback
                     el.volume = Math.min(1, Math.max(0, targetVol));
                 }
             }
@@ -165,6 +168,86 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
 
     }, [currentTime, isPlaying, activeVideoClips, audioTracks, videoTrackState, audioTrackState]);
 
+
+    // --- Text Drag Logic ---
+    const [draggingText, setDraggingText] = useState<{ id: string, initialMouseX: number, initialMouseY: number, initialX: number, initialY: number } | null>(null);
+
+    const handleTextMouseDown = (e: React.MouseEvent, clip: any) => {
+        e.stopPropagation();
+        e.preventDefault(); // Prevent player toggle
+        if (onSelectClip) onSelectClip(clip.id);
+
+        const style = clip.style || {};
+        // Default positions if missing
+        const currentX = style.x !== undefined ? style.x : 0.5;
+        const currentY = style.y !== undefined ? style.y : 0.8;
+
+        setDraggingText({
+            id: clip.id,
+            initialMouseX: e.clientX,
+            initialMouseY: e.clientY,
+            initialX: currentX, // Normalized 0-1
+            initialY: currentY  // Normalized 0-1
+        });
+    };
+
+    // Calculate Active Text Clips
+    const activeTextClips = (textTracks || []).filter(t =>
+        currentTime >= t.start && currentTime < t.start + t.duration
+    );
+
+    // Global Mouse Move for Text Dragging
+    useEffect(() => {
+        if (!draggingText) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                const deltaX = e.clientX - draggingText.initialMouseX;
+                const deltaY = e.clientY - draggingText.initialMouseY;
+
+                // Convert pixels to percentage logic
+                // container width/height
+                const percentX = deltaX / rect.width;
+                const percentY = deltaY / rect.height;
+
+                let newX = draggingText.initialX + percentX;
+                let newY = draggingText.initialY + percentY;
+
+                // Clamp to visible area (optional)
+                newX = Math.max(0, Math.min(1, newX));
+                newY = Math.max(0, Math.min(1, newY));
+
+                // Update CLIP logic
+                if (onUpdateTextTracks) {
+                    const tracks = [...(textTracks || [])];
+                    const index = tracks.findIndex(t => t.id === draggingText.id);
+                    if (index !== -1) {
+                        // Shallow Update for Performance? Or full update?
+                        // Full update triggers re-render, which is fine for handful of texts.
+                        tracks[index] = {
+                            ...tracks[index],
+                            style: { ...tracks[index].style, x: newX, y: newY }
+                        };
+                        onUpdateTextTracks(tracks);
+                    }
+                }
+            }
+        };
+
+        const handleMouseUp = () => {
+            setDraggingText(null);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [draggingText, textTracks, onUpdateTextTracks]);
+
+
     return (
         <div
             ref={containerRef}
@@ -197,14 +280,10 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                                 }}
                                 loop={false}
                                 playsInline
-                                crossOrigin="anonymous" // ENABLED for Web Audio
+                                crossOrigin="anonymous"
                                 muted={false}
                                 onError={(e) => {
-                                    const err = e.currentTarget.error;
-                                    console.error("Video Error:", clip.url, err);
-                                    // Fallback: If CORS error, simplify?
-                                    // Hard to recover gracefully without reload.
-                                    // But CORS setup should prevent this.
+                                    console.error("Video Error:", clip.url, e.currentTarget.error);
                                 }}
                             />
                         </React.Fragment>
@@ -216,42 +295,37 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 </div>
             )}
 
-            {/* 2. Subtitles */}
-            <div className="absolute bottom-12 left-0 right-0 text-center px-4 pointer-events-none z-50">
-                <span
-                    className="inline-block px-2 py-1 bg-black/50 text-white text-lg font-bold rounded shadow-lg backdrop-blur-sm"
-                    style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
-                >
-                    {currentSubtitle}
-                </span>
-            </div>
+            {/* 2. Text Overlays (Draggable) */}
+            {activeTextClips.map((clip) => {
+                const style = clip.style || {};
+                const x = (style.x ?? 0.5) * 100;
+                const y = (style.y ?? 0.8) * 100;
+                const isSelected = clip.id === selectedClipId;
 
-            {/* 3. Audio Mixer */}
-            <div className="hidden">
-                {audioTracks.map(track => (
-                    <video // Using video for audio tracks for consistency? Note original used video tag for audio too? 
-                        // No, original used video tag for audioTracks? 
-                        // Yes, lines 149 in previous file: <video ... src={track.url} ... />
-                        // Audio tracks handled as invisible video elements seems to be the pattern.
-                        key={track.id}
-                        ref={(el) => {
-                            if (el && !audioRefs.current[track.id]) audioRefs.current[track.id] = el as unknown as HTMLAudioElement; // Casting hack or fix type
+                return (
+                    <div
+                        key={clip.id}
+                        onMouseDown={(e) => handleTextMouseDown(e, clip)}
+                        className={`absolute z-50 px-2 py-1 cursor-move transition-transform duration-75 select-none
+                            ${isSelected ? 'ring-2 ring-indigo-500 rounded' : 'hover:ring-1 hover:ring-white/50 rounded'}
+                        `}
+                        style={{
+                            left: `${x}%`,
+                            top: `${y}%`,
+                            transform: 'translate(-50%, -50%)', // Center pivot
+                            color: style.color || '#white',
+                            fontSize: `${style.fontSize || 24}px`,
+                            fontFamily: style.fontFamily || 'sans-serif',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                            whiteSpace: 'nowrap'
                         }}
-                    // Actually let's use <audio> for audio? 
-                    // If I change to <audio>, Refs type match.
-                    // But original code used <video> for audioTracks?
-                    // Let's stick to <audio> for Audio Tracks.
                     >
-                        <source src={track.url} />
-                    </video>
-                    // Wait, JSX above returned <video> for audioTracks loop (L149).
-                    // I should keep it consistent or fix it.
-                    // <audio> is better for Audio.
-                    // But ref type is HTMLAudioElement.
-                    // Let's use <audio>.
-                ))}
-            </div>
-            {/* 3. Audio Mixer Corrected */}
+                        {clip.text}
+                    </div>
+                );
+            })}
+
+            {/* 3. Audio Mixer Handlers (Hidden) */}
             <div className="hidden">
                 {audioTracks.map(track => (
                     <audio

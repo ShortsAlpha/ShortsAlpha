@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Volume2, VolumeX, RotateCw, RefreshCcw, Monitor, Eraser, Wand2 } from "lucide-react";
+import { Volume2, VolumeX, RotateCw, RefreshCcw, Monitor, Eraser, Wand2, Type } from "lucide-react";
 
 interface PropertiesPanelProps {
     selectedClip: any;
@@ -37,6 +37,7 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
     if (!selectedClip) return null;
 
     const isVideo = selectedClip.type === 'video';
+    const isText = selectedClip.type === 'text';
 
     return (
         <div className="w-80 border-l border-zinc-800 bg-[#1e1e1e] flex flex-col h-full animate-in slide-in-from-right-5 duration-200">
@@ -157,6 +158,71 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                                 value={selectedClip.rotation ?? 0}
                                                 onChange={(e) => onUpdateClip(selectedClip.id, { rotation: parseFloat(e.target.value) })}
                                                 className="w-full accent-teal-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Text Properties Section */}
+                        {isText && (
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+                                    <Type className="w-3.5 h-3.5" /> Metin
+                                </h3>
+
+                                <div className="space-y-4 pl-2 border-l border-zinc-800 ml-1">
+                                    {/* Content */}
+                                    <div className="space-y-2">
+                                        <span className="text-[10px] text-zinc-500">İçerik</span>
+                                        <textarea
+                                            value={selectedClip.text || ''}
+                                            onChange={(e) => onUpdateClip(selectedClip.id, { text: e.target.value })}
+                                            className="w-full bg-zinc-900 border border-zinc-800 rounded-md p-2 text-xs text-white focus:outline-none focus:border-zinc-700 min-h-[60px]"
+                                            rows={3}
+                                        />
+                                    </div>
+
+                                    {/* Font Size */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                                            <span>Boyut</span>
+                                            <span className="text-white">{selectedClip.style?.fontSize || 24}px</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="12"
+                                            max="72"
+                                            value={selectedClip.style?.fontSize || 24}
+                                            onChange={(e) => onUpdateClip(selectedClip.id, {
+                                                style: { ...selectedClip.style, fontSize: parseInt(e.target.value) }
+                                            })}
+                                            className="w-full accent-indigo-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+
+                                    {/* Color */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                                            <span>Renk</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="color"
+                                                value={selectedClip.style?.color || '#ffffff'}
+                                                onChange={(e) => onUpdateClip(selectedClip.id, {
+                                                    style: { ...selectedClip.style, color: e.target.value }
+                                                })}
+                                                className="w-8 h-8 rounded border-none cursor-pointer bg-transparent p-0"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={selectedClip.style?.color || '#ffffff'}
+                                                onChange={(e) => onUpdateClip(selectedClip.id, {
+                                                    style: { ...selectedClip.style, color: e.target.value }
+                                                })}
+                                                className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 text-xs text-white focus:outline-none uppercase"
                                             />
                                         </div>
                                     </div>
