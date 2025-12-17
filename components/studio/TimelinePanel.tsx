@@ -1024,14 +1024,14 @@ export function TimelinePanel({
                                                 >
                                                     {/* Left Handle - Touch Friendly & Visible */}
                                                     <div
-                                                        className={`absolute -left-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                        className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
                                                         `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     >
                                                         {/* Visible Bar */}
-                                                        <div className="w-1.5 h-8 bg-white rounded-full shadow-lg" />
+                                                        <div className="w-2 h-8 bg-white rounded shadow-lg border border-black/20" />
                                                     </div>
 
                                                     {/* Thumbnails Strip (Mock) */}
@@ -1046,14 +1046,14 @@ export function TimelinePanel({
 
                                                     {/* Right Handle - Touch Friendly & Visible */}
                                                     <div
-                                                        className={`absolute -right-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                        className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
                                                         `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     >
                                                         {/* Visible Bar */}
-                                                        <div className="w-1.5 h-8 bg-white rounded-full shadow-lg" />
+                                                        <div className="w-2 h-8 bg-white rounded shadow-lg border border-black/20" />
                                                     </div>
                                                 </div>
                                             );
@@ -1147,13 +1147,13 @@ export function TimelinePanel({
 
                                                     {/* Right Handle - Touch Friendly */}
                                                     <div
-                                                        className={`absolute -right-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                        className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
                                                         `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     >
-                                                        <div className="w-1 h-4 bg-indigo-200 rounded-full shadow-lg" />
+                                                        <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
                                                     </div>
                                                 </div>
                                             );

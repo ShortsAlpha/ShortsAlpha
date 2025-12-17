@@ -147,13 +147,21 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
             {/* 3. Audio Mixer (Invisible) */}
             <div className="hidden">
                 {audioTracks.map(track => (
-                    <audio
+                    <video
                         key={track.id}
                         ref={(el) => {
                             if (el) audioRefs.current[track.id] = el;
                         }}
+                        className="w-full h-full object-contain pointer-events-none"
                         src={track.url}
                         preload="auto"
+                        playsInline
+                        webkit-playsinline="true"
+                        crossOrigin="anonymous"
+                        style={{
+                            transform: 'translate3d(0,0,0)',
+                            willChange: 'transform'
+                        }}
                     />
                 ))}
             </div>
