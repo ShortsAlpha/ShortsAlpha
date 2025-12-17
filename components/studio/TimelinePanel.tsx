@@ -272,10 +272,30 @@ export function TimelinePanel({
     useEffect(() => {
         if (resizing || moving) {
             const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+                let allowScroll = false;
+
                 if ('touches' in e) {
-                    // Prevent scrolling on mobile while dragging/resizing
-                    if (e.cancelable) e.preventDefault();
+                    const touch = e.touches[0];
+                    // Check Intent
+                    if (resizing) {
+                        // Resizing is always explicit override
+                        if (e.cancelable) e.preventDefault();
+                    } else if (moving) {
+                        const dx = touch.clientX - moving.initialX;
+                        const dy = touch.clientY - moving.initialY;
+
+                        // If vertical movement is dominant, allow scrolling (don't prevent default)
+                        // Unless we exceed a horizontal threshold first to lock it.
+                        // Simple check: if ABS(dy) > ABS(dx) -> Scroll
+                        if (Math.abs(dy) > Math.abs(dx)) {
+                            allowScroll = true;
+                        } else {
+                            if (e.cancelable) e.preventDefault();
+                        }
+                    }
                 }
+
+                if (allowScroll) return; // Let browser handle it (likely scroll)
 
                 const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
                 const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
