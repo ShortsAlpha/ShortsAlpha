@@ -805,9 +805,11 @@ export function TimelinePanel({
                 </div>
 
                 <div className="flex items-center gap-3 text-xs font-mono text-zinc-500">
-                    <span>{new Date(currentTime * 1000).toISOString().substr(11, 8)}</span>
+                    <span>{new Date(currentTime * 1000).toISOString().substr(14, 5)}</span>
                     <span className="text-zinc-700">/</span>
-                    <span>{new Date(duration * 1000).toISOString().substr(11, 8)}</span>
+                    <span>
+                        {new Date(Math.max(0, ...videoTracks.map(t => t.start + t.duration), ...audioTracks.map(t => t.start + t.duration)) * 1000).toISOString().substr(14, 5)}
+                    </span>
                 </div>
             </div>
 
@@ -826,13 +828,6 @@ export function TimelinePanel({
                                         <span className="text-[10px] font-bold text-teal-500/80">V{trackIdx}</span>
                                         {/* Status Indicators (Mini) */}
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono text-zinc-400 min-w-[40px] text-right">
-                                                {new Date(currentTime * 1000).toISOString().substr(14, 5)}
-                                            </span>
-                                            <span className="text-xs text-zinc-600">/</span>
-                                            <span className="text-xs font-mono text-zinc-500 min-w-[40px]">
-                                                {new Date(Math.max(duration, ...videoTracks.map(t => t.start + t.duration), ...audioTracks.map(t => t.start + t.duration)) * 1000).toISOString().substr(14, 5)}
-                                            </span>
                                             {videoTrackState[trackIdx]?.hidden && <EyeOff className="w-2.5 h-2.5 text-zinc-400" />}
                                         </div>
                                     </div>
@@ -1140,13 +1135,16 @@ export function TimelinePanel({
                                                 >
                                                     {/* Left Handle - Touch Friendly */}
                                                     <div
-                                                        className={`absolute -left-3 top-0 bottom-0 w-6 cursor-ew-resize z-30 flex items-center justify-center group/handle
+                                                        className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
                                                         `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        onTouchStart={(e) => {
+                                                            e.preventDefault();
+                                                            handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration);
+                                                        }}
                                                     >
-                                                        <div className="w-1 h-4 bg-indigo-200 rounded-full shadow-lg" />
+                                                        <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
                                                     </div>
 
                                                     {/* Waveform Mock - Static & Angular */}
@@ -1165,7 +1163,10 @@ export function TimelinePanel({
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
                                                         `}
                                                         onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        onTouchStart={(e) => {
+                                                            e.preventDefault(); // Stop bubbling immediately
+                                                            handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration);
+                                                        }}
                                                     >
                                                         <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
                                                     </div>
