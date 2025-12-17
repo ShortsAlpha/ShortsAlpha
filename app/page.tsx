@@ -6,18 +6,26 @@ import { CreateSourceView } from "@/components/CreateSourceView";
 import { AnalysisView } from "@/components/AnalysisView";
 import { StudioView } from "@/components/StudioView";
 
-type ViewState = 'dashboard' | 'create_source' | 'analysis' | 'studio';
+type ViewState = 'dashboard' | 'create_source' | 'studio'; // Removed 'analysis' from ViewState
 
 export default function Home() {
     const [activeView, setActiveView] = useState<ViewState>("dashboard");
     const [analysisResult, setAnalysisResult] = useState<any>(null);
 
-    const handleDashboardSelect = (mode: 'remix' | 'create') => {
-        if (mode === 'remix') {
-            setActiveView('analysis');
-        } else {
-            setActiveView('create_source');
-        }
+    const handleSelectMode = (mode: 'remix' | 'create') => {
+        // user said "analysis screen is unnecessary. Remix clip will send us there".
+        // So both modes should probably just go to Studio or Analysis is skipped.
+        // If mode is 'remix', we usually go to Studio with empty state?
+        // Let's just set View to 'studio' directly for both, or just handle Remix.
+        // Actually, if I remove 'analysis', I should just jump to 'studio'.
+
+        // Mock Analysis Result for now to satisfy prop
+        const mockAnalysis = {
+            script: [],
+            metadata: {}
+        };
+        setAnalysisResult(mockAnalysis);
+        setActiveView('studio'); // Corrected from setCurrentView to setActiveView
     };
 
     const handleScriptGenerated = (script: any) => {

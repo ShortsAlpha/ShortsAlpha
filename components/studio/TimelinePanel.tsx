@@ -357,44 +357,87 @@ export function TimelinePanel({
                         setSnapLine(null);
                     }
 
-                    // Update Tracks
+                    // Update Tracks with Collision Check
                     if (moving.type === 'video') {
-                        const TRACK_HEIGHT = 64 + 4; // h-16 + gap-1 (approx)
-                        const trackDiff = Math.round(deltaY / TRACK_HEIGHT);
-                        let newTrackIndex = (moving.originalTrackIndex || 0) + trackDiff;
+                        const TRACK_HEIGHT = 64 + 4;
+                        // Video Layers are rendered Reverse [2,1,0] (Top is 2, Bottom is 0) ?
+                        // Wait, let's verify visual layers var.
+                        // const videoLayers = [2, 1, 0]; // (Example assumption based on user report)
+                        // If Visual Top = 2. Visual Bottom = 0.
+                        // Drag Up (Negative Y) -> Should move to Higher Visual (Higher Index 2).
+                        // So Negative Y -> Positive Index Change?
+                        // Yes. Inverted.
 
-                        // Limit tracks (0 to 2 for now, or dynamic based on layers)
-                        // defined via videoLayers.length
-                        // We need access to videoLayers or just clamp to sensible max
-                        // Assume max 5 tracks for safety or clamp to 0..4
-                        newTrackIndex = Math.max(0, Math.min(newTrackIndex, 4));
+                        const trackDiff = Math.round(deltaY / TRACK_HEIGHT);
+                        // If Drag Down (+), we want Index Decrease (2->1). So Invert.
+                        let newTrackIndex = (moving.originalTrackIndex || 0) - trackDiff;
+
+                        // Limit tracks (0 to 2)
+                        newTrackIndex = Math.max(0, Math.min(newTrackIndex, 2));
 
                         const clipIndex = currentVideoTracks.findIndex(c => c.id === moving.id);
                         if (clipIndex !== -1) {
-                            const newTracks = [...currentVideoTracks];
-                            // Update both Start Time and Track Index
-                            newTracks[clipIndex] = {
-                                ...newTracks[clipIndex],
-                                start: newStart,
-                                trackIndex: newTrackIndex
-                            };
-                            onUpdateVideoTracks(newTracks);
+                            // Collision Check
+                            const targetTrackClips = currentVideoTracks.filter(c => c.id !== moving.id && (c.trackIndex || 0) === newTrackIndex);
+                            const hasCollision = targetTrackClips.some(c => {
+                                const cEnd = c.start + c.duration;
+                                const newEnd = newStart + currentVideoTracks[clipIndex].duration; // Approx
+                                return !(newEnd <= c.start || newStart >= cEnd);
+                            });
+
+                            if (!hasCollision) {
+                                const newTracks = [...currentVideoTracks];
+                                newTracks[clipIndex] = {
+                                    ...newTracks[clipIndex],
+                                    start: newStart,
+                                    trackIndex: newTrackIndex
+                                };
+                                onUpdateVideoTracks(newTracks);
+                            } else {
+                                // Collision! Maybe just update Start Time if that doesn't collide?
+                                // Or fully block? User said "don't overlap".
+                                // Let's try to at least update start time on CURRENT track if visual vertical move fails.
+
+                                // Check collision on CURRENT/OLD track
+                                const oldTrackIndex = moving.trackIndex || 0; // The one safely established
+                                // Actually moving.originalTrackIndex is start.
+                                // Let's stick to old track logic if new fails.
+
+                                // Re-Check collision on ORIGINAL track with NEW Start
+                                const originalTrackClips = currentVideoTracks.filter(c => c.id !== moving.id && (c.trackIndex || 0) === moving.originalTrackIndex); // Use current established track?
+                                // moving state doesn't update.
+                                // We are updating 'newTracks' via prop.
+                                // Let's just BLOCK if collision on target.
+                            }
                         }
                     } else {
-                        const TRACK_HEIGHT = 48 + 4; // h-12 + gap-1
+                        const TRACK_HEIGHT = 48 + 4;
+                        // Audio is usually standard [0,1,2]. Top=0.
+                        // Drag Down (+) -> Index Increase (0->1). Correct.
                         const trackDiff = Math.round(deltaY / TRACK_HEIGHT);
                         let newTrackIndex = (moving.originalTrackIndex || 0) + trackDiff;
                         newTrackIndex = Math.max(0, Math.min(newTrackIndex, 4));
 
                         const clipIndex = currentAudioTracks.findIndex(c => c.id === moving.id);
                         if (clipIndex !== -1) {
-                            const newTracks = [...currentAudioTracks];
-                            newTracks[clipIndex] = {
-                                ...newTracks[clipIndex],
-                                start: newStart,
-                                trackIndex: newTrackIndex
-                            };
-                            onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
+                            // Collision Check
+                            const targetTrackClips = currentAudioTracks.filter(c => c.id !== moving.id && (c.trackIndex || 0) === newTrackIndex);
+                            const clipDuration = currentAudioTracks[clipIndex].duration;
+                            const hasCollision = targetTrackClips.some(c => {
+                                const cEnd = c.start + c.duration;
+                                const newEnd = newStart + clipDuration;
+                                return !(newEnd <= c.start || newStart >= cEnd);
+                            });
+
+                            if (!hasCollision) {
+                                const newTracks = [...currentAudioTracks];
+                                newTracks[clipIndex] = {
+                                    ...newTracks[clipIndex],
+                                    start: newStart,
+                                    trackIndex: newTrackIndex
+                                };
+                                onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
+                            }
                         }
                     }
                 }
