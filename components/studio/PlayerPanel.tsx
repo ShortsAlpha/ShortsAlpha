@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2 } from "lucide-react";
 
 interface PlayerPanelProps {
@@ -90,35 +90,36 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                     if (videoTrackState[trackIdx]?.hidden) return null; // Don't render if hidden
 
                     return (
-                        <video
-                            key={clip.id}
-                            ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
-                            src={clip.url}
-                            className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
-                            style={{
-                                zIndex: index, // Higher index = On Top
-                                transform: `
-                                    scale(${clip.scale ?? 1}) 
-                                    translate(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px) 
-                                    rotate(${clip.rotation ?? 0}deg)
-                                `
-                            }}
-                            loop={false}
-                            playsInline
-                            crossOrigin="anonymous"
-                            muted={false}
-                            onError={(e) => {
-                                const err = e.currentTarget.error;
-                                console.error("Video Error:", clip.url, err);
-                                // Show error on UI
-                                const span = document.getElementById(`debug-${clip.id}`);
-                                if (span) span.style.display = 'block';
-                                if (span) span.innerText = `ERR: ${err?.code} - ${err?.message}`;
-                            }}
-                        />
-                        <div id={`debug-${clip.id}`} className="hidden absolute top-0 left-0 bg-red-600 text-white text-[10px] p-1 z-[100]">
-                            Loading...
-                        </div>
+                        <React.Fragment key={clip.id}>
+                            <video
+                                ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
+                                src={clip.url}
+                                className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
+                                style={{
+                                    zIndex: index, // Higher index = On Top
+                                    transform: `
+                                        scale(${clip.scale ?? 1}) 
+                                        translate(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px) 
+                                        rotate(${clip.rotation ?? 0}deg)
+                                    `
+                                }}
+                                loop={false}
+                                playsInline
+                                crossOrigin="anonymous"
+                                muted={false}
+                                onError={(e) => {
+                                    const err = e.currentTarget.error;
+                                    console.error("Video Error:", clip.url, err);
+                                    // Show error on UI
+                                    const span = document.getElementById(`debug-${clip.id}`);
+                                    if (span) span.style.display = 'block';
+                                    if (span) span.innerText = `ERR: ${err?.code} - ${err?.message}`;
+                                }}
+                            />
+                            <div id={`debug-${clip.id}`} className="hidden absolute top-0 left-0 bg-red-600 text-white text-[10px] p-1 z-[100]">
+                                Loading...
+                            </div>
+                        </React.Fragment>
                     );
                 })
             ) : (
