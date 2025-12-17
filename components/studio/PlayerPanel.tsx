@@ -42,10 +42,12 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                 if (isPlaying && el.paused) el.play().catch(() => { });
                 if (!isPlaying && !el.paused) el.pause();
 
-                // Volume Control (Global Track Mute overrides clip volume)
+                // Volume Control
                 const trackIdx = clip.trackIndex || 0;
                 const isTrackMuted = videoTrackState[trackIdx]?.muted;
-                el.volume = Math.min(1, Math.max(0, isTrackMuted ? 0 : (clip.volume !== undefined ? clip.volume : 1.0)));
+                const targetVol = isTrackMuted ? 0 : (clip.volume ?? 1);
+                // HTMLMediaElement volume is 0.0 to 1.0
+                el.volume = Math.min(1, Math.max(0, targetVol));
             }
         });
 
@@ -68,14 +70,15 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                     if (!el.paused) el.pause();
                 }
 
-                // Volume Control (Global Track Mute overrides clip volume)
+                // Volume Control
                 const trackIdx = track.trackIndex || 0;
                 const isTrackMuted = audioTrackState[trackIdx]?.muted;
-                el.volume = Math.min(1, Math.max(0, isTrackMuted ? 0 : (track.volume !== undefined ? track.volume : 1.0)));
+                const targetVol = isTrackMuted ? 0 : (track.volume ?? 1);
+                el.volume = Math.min(1, Math.max(0, targetVol));
             }
         });
 
-    }, [currentTime, isPlaying, activeVideoClips, audioTracks]);
+    }, [currentTime, isPlaying, activeVideoClips, audioTracks, videoTrackState, audioTrackState]);
 
     return (
         <div
