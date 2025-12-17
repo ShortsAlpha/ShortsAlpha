@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, BUCKET_NAME } from "@/lib/s3Client";
 import { v4 as uuidv4 } from "uuid";
@@ -28,10 +28,19 @@ export async function POST(request: NextRequest) {
 
         const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
+        // Generate Signed GET URL for immediate playback (Fallback if no Public URL)
+        // This ensures playback works even if bucket is private
+        const getCommand = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
+        const signedGetUrl = await getSignedUrl(s3Client, getCommand, { expiresIn: 604800 }); // 7 Days
+
+        const finalPublicUrl = process.env.R2_PUBLIC_URL
+            ? `${process.env.R2_PUBLIC_URL}/${key}`
+            : signedGetUrl;
+
         return NextResponse.json({
             uploadUrl: signedUrl,
             key: key,
-            publicUrl: `${process.env.R2_PUBLIC_URL}/${key}`
+            publicUrl: finalPublicUrl
         });
     } catch (err: any) {
         console.error("Presign Error:", err);

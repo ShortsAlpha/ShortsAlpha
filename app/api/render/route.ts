@@ -31,11 +31,11 @@ export async function POST(request: NextRequest) {
 
         const response = await axios.post(modalUrl, {
             ...body,
-            // Inject Setup Credentials securelxy
-            r2_account_id: process.env.R2_ACCOUNT_ID,
-            r2_access_key_id: process.env.R2_ACCESS_KEY_ID,
-            r2_secret_access_key: process.env.R2_SECRET_ACCESS_KEY,
-            r2_bucket_name: process.env.R2_BUCKET_NAME
+            // Inject Setup Credentials securely, fallback to empty string to prevent 422 (Pydantic 'field required')
+            r2_account_id: process.env.R2_ACCOUNT_ID || body.r2_account_id || "",
+            r2_access_key_id: process.env.R2_ACCESS_KEY_ID || body.r2_access_key_id || "",
+            r2_secret_access_key: process.env.R2_SECRET_ACCESS_KEY || body.r2_secret_access_key || "",
+            r2_bucket_name: process.env.R2_BUCKET_NAME || body.r2_bucket_name || ""
         }, {
             timeout: 30000 // 30s timeout for start request
         });
