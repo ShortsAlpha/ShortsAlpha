@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { CreateSourceView } from "@/components/CreateSourceView";
-import { AnalysisView } from "@/components/AnalysisView";
+// AnalysisView removed
 import { StudioView } from "@/components/StudioView";
 
 type ViewState = 'dashboard' | 'create_source' | 'studio'; // Removed 'analysis' from ViewState
@@ -48,7 +48,7 @@ export default function Home() {
             <div className="flex-1 ml-20 md:ml-64 p-6 md:p-12 overflow-y-auto h-screen transition-all">
 
                 {activeView === "dashboard" && (
-                    <Dashboard onSelectMode={handleDashboardSelect} />
+                    <Dashboard onSelectMode={handleSelectMode} />
                 )}
 
                 {activeView === "create_source" && (
@@ -58,13 +58,7 @@ export default function Home() {
                     />
                 )}
 
-                {activeView === "analysis" && (
-                    <AnalysisView
-                        analysisResult={analysisResult}
-                        setAnalysisResult={setAnalysisResult}
-                        onAnalysisComplete={() => setActiveView("studio")}
-                    />
-                )}
+                {/* Analysis View Removed */}
 
                 {activeView === "studio" && (
                     <StudioView analysisResult={analysisResult} />

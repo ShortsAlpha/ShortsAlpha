@@ -9,7 +9,7 @@ interface SidebarProps {
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
     const menuItems = [
         { id: "dashboard", label: "Home", icon: Home },
-        { id: "analysis", label: "Analysis", icon: LayoutDashboard },
+        // Analysis Removed
         { id: "studio", label: "Studio", icon: Clapperboard },
     ];
 
