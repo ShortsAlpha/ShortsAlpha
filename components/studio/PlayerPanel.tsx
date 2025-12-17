@@ -96,7 +96,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                         <React.Fragment key={mk}>
                             <video
                                 ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
-                                src={clip.url}
+                                src={clip.url + "#t=0.001"}
                                 preload="metadata"
                                 className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
                                 style={{
