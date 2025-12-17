@@ -44,6 +44,7 @@ export function TimelinePanel({
     onExternalDragEnd
 }: TimelinePanelProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const headerContainerRef = useRef<HTMLDivElement>(null);
 
     // DEBUG LOGGER
     const [logs, setLogs] = useState<string[]>([]);
@@ -60,6 +61,9 @@ export function TimelinePanel({
     const [draggedClipId, setDraggedClipId] = useState<{ id: string, type: 'video' | 'audio', offsetSeconds: number } | null>(null);
     const draggedClipRef = useRef<{ id: string, type: 'video' | 'audio', offsetSeconds: number } | null>(null);
     // Sync ref with state is manual in handlers to ensure speed.
+
+    // Scrubbing State
+    const [isScrubbing, setIsScrubbing] = useState(false);
 
     // Moving State (Manual Drag)
 
