@@ -105,6 +105,7 @@ export function PlayerPanel({ script, activeVideoClips = [], audioUrl, currentTi
                             }}
                             loop={false}
                             playsInline
+                            crossOrigin="anonymous"
                             muted={false} // Allow sound (mixed via volume)
                         />
                     );

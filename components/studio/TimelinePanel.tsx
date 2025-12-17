@@ -246,10 +246,16 @@ export function TimelinePanel({
 
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('touchmove', handleMouseMove as any, { passive: false });
+            window.addEventListener('touchend', handleMouseUp);
+            window.addEventListener('touchcancel', handleMouseUp);
 
             return () => {
                 window.removeEventListener('mousemove', handleMouseMove);
                 window.removeEventListener('mouseup', handleMouseUp);
+                window.removeEventListener('touchmove', handleMouseMove as any);
+                window.removeEventListener('touchend', handleMouseUp);
+                window.removeEventListener('touchcancel', handleMouseUp);
             };
         }
 
