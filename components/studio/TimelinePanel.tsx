@@ -376,6 +376,39 @@ export function TimelinePanel({
         }
     }, [resizing, moving, videoTracks, audioTracks, onUpdateVideoTracks, onUpdateAudioTracks, PIXELS_PER_SECOND]);
 
+    // Handle Scrubbing (Global Mouse Move)
+    useEffect(() => {
+        if (isScrubbing) {
+            const handleScrubMove = (e: MouseEvent | TouchEvent) => {
+                const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+
+                if (scrollContainerRef.current) {
+                    const rect = scrollContainerRef.current.getBoundingClientRect();
+                    const scrollLeft = scrollContainerRef.current.scrollLeft;
+                    const offsetX = clientX - rect.left + scrollLeft;
+                    const newTime = offsetX / PIXELS_PER_SECOND;
+                    onSeek(Math.min(Math.max(0, newTime), duration + 300));
+                }
+            };
+
+            const handleScrubUp = () => {
+                setIsScrubbing(false);
+            };
+
+            window.addEventListener('mousemove', handleScrubMove);
+            window.addEventListener('mouseup', handleScrubUp);
+            window.addEventListener('touchmove', handleScrubMove, { passive: false });
+            window.addEventListener('touchend', handleScrubUp);
+
+            return () => {
+                window.removeEventListener('mousemove', handleScrubMove);
+                window.removeEventListener('mouseup', handleScrubUp);
+                window.removeEventListener('touchmove', handleScrubMove);
+                window.removeEventListener('touchend', handleScrubUp);
+            };
+        }
+    }, [isScrubbing, onSeek, duration, PIXELS_PER_SECOND]);
+
     // Handle Start Move (Mouse/Touch Down on Clip Body)
     const handleMoveStart = (e: React.MouseEvent | React.TouchEvent, clipId: string, type: 'video' | 'audio', start: number, trackIndex: number) => {
         // e.preventDefault(); // Don't prevent default immediately if we want scrolling, but for DND we usually do.
@@ -609,7 +642,7 @@ export function TimelinePanel({
             <div className="flex-1 flex min-h-0 overflow-hidden relative">
 
                 {/* LEFT: Track Headers (Fixed Width) */}
-                <div className="w-[120px] bg-[#1e1e1e] border-r border-[#333] flex flex-col shrink-0 z-20 mt-[24px]" /* mt-6 matches timeline ruler height */>
+                <div ref={headerContainerRef} className="w-[120px] bg-[#1e1e1e] border-r border-[#333] flex flex-col shrink-0 z-20 mt-[24px] overflow-hidden" /* mt-6 matches timeline ruler height */>
                     <div className="flex-1 overflow-hidden flex flex-col py-4 space-y-4"> {/* Padding matches timeline content padding */}
 
                         {/* Video Headers (Reverse Order: Top Layer First) */}
@@ -690,7 +723,13 @@ export function TimelinePanel({
                 {/* RIGHT: Timeline Scroll Area */}
                 <div
                     ref={scrollContainerRef}
-                    className="flex-1 overflow-x-auto overflow-y-hidden relative bg-[#131313] custom-scrollbar flex flex-col"
+                    className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#131313] custom-scrollbar flex flex-col"
+                    onScroll={(e) => {
+                        // Sync Vertical Scroll with Headers
+                        if (headerContainerRef.current) {
+                            headerContainerRef.current.scrollTop = e.currentTarget.scrollTop;
+                        }
+                    }}
                 >
                     <div
                         className="h-full relative flex flex-col min-w-full"
@@ -698,22 +737,27 @@ export function TimelinePanel({
                     >
                         {/* Time Ruler */}
                         <div
-                            className="h-6 border-b border-[#333] flex items-end text-[9px] text-zinc-500 font-mono select-none bg-[#1e1e1e] sticky top-0 z-10 w-full cursor-pointer hover:bg-[#252525]"
-                            onClick={(e) => {
+                            className="h-6 border-b border-[#333] flex items-end text-[9px] text-zinc-500 font-mono select-none bg-[#1e1e1e] sticky top-0 z-10 w-full cursor-col-resize hover:bg-[#252525]"
+                            onMouseDown={(e) => {
+                                // Start Scrubbing
+                                if (isPlaying) onTogglePlay(); // Pause if playing
+                                setIsScrubbing(true);
+
+                                // Initial Seek
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                const clickX = e.clientX - rect.left + e.currentTarget.scrollLeft; // Ruler is sticky, check offset carefully
-                                // Actually, e.currentTarget is the sticky header. Its rect.left depends on viewport.
-                                // But the clickX logic needs to map to TIMELINE SCROLL.
-                                // The header is sticky, so it doesn't scroll with the body content horizontally? 
-                                // Wait, overflow-x is on the PARENT of this div?
-                                // Parent (line 604): overflow-x-auto.
-                                // This div (line 605): min-w-full.
-                                // Sticky (line 617): sticky top-0. 
-                                // Sticky works vertically. Horizontally it stays with content.
-                                // So e.clientX - rect.left gives X relative to the ruler element.
-                                // If the ruler element is full width, it should work.
+                                const clickX = e.clientX - rect.left + e.currentTarget.scrollLeft;
+                                // Note: currentTarget is the sticky header. We need global offset relative to scrollContainer.
+                                // Actually, simpler: e.nativeEvent.offsetX is relative to the target (Ruler div). 
+                                // Since Ruler div spans the FULL width (min-w-full), offsetX is correct map to time.
                                 const newTime = (e.nativeEvent.offsetX / PIXELS_PER_SECOND);
                                 onSeek(Math.min(Math.max(0, newTime), Math.max(duration, newTime)));
+                            }}
+                            onTouchStart={(e) => {
+                                if (isPlaying) onTogglePlay();
+                                setIsScrubbing(true);
+                                // Initial touch logic handled by move/click usually, 
+                                // but for instant reaction we can calculate here if needed.
+                                // Let's rely on the Move effect for continuous updates.
                             }}
                         >
                             {Array.from({ length: Math.ceil(visualDuration / 5) }).map((_, i) => (
