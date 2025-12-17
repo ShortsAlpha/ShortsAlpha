@@ -72,8 +72,10 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
     // Helper: Add Asset to Timeline
     const handleAddAsset = async (url: string) => {
-        // Simple type detection
-        const isAudio = url.match(/\.(mp3|wav|m4a)$/i);
+        // Simple type detection (Robust for Query Params)
+        // Check for extension before any '?' or '#'
+        const cleanUrl = url.split(/[?#]/)[0];
+        const isAudio = cleanUrl.match(/\.(mp3|wav|m4a)$/i);
         const type = isAudio ? 'audio' : 'video';
 
         const duration = await getAssetDuration(url, type);
