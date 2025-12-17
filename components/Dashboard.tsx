@@ -72,22 +72,42 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
             </div>
 
             {/* Footer Stats / Social Proof */}
-            <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-12 text-center opacity-40">
-                <div className="space-y-1">
-                    <div className="text-2xl font-bold text-white">2.5 Pro</div>
-                    <div className="text-xs uppercase tracking-widest text-zinc-500">Model</div>
+            {/* Footer Stats / Social Proof */}
+            <div className="mt-16 text-center space-y-8 animate-in slide-in-from-bottom-5 duration-1000">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Current Capabilities</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                    <div className="p-4 rounded-xl bg-zinc-900/30 border border-white/5 space-y-2">
+                        <div className="text-indigo-400 font-bold">🎬 Smart Timeline</div>
+                        <p className="text-xs text-zinc-400">Multi-track video/audio editing. Drag & drop assets, resize clips, and auto-snap alignment.</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-zinc-900/30 border border-white/5 space-y-2">
+                        <div className="text-emerald-400 font-bold">🤖 AI & Cloud Power</div>
+                        <p className="text-xs text-zinc-400">Google Gemini analysis (Soon) + Cloudflare R2 fast uploads. 4K Export via Cloud FFmpeg.</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-zinc-900/30 border border-white/5 space-y-2">
+                        <div className="text-purple-400 font-bold">📱 Mobile Optimized</div>
+                        <p className="text-xs text-zinc-400">Full touch support for iPad/iOS to Edit on the go. No powerful PC required.</p>
+                    </div>
                 </div>
-                <div className="space-y-1">
-                    <div className="text-2xl font-bold text-white">4K</div>
-                    <div className="text-xs uppercase tracking-widest text-zinc-500">Export</div>
-                </div>
-                <div className="space-y-1">
-                    <div className="text-2xl font-bold text-white">Multi</div>
-                    <div className="text-xs uppercase tracking-widest text-zinc-500">Sources</div>
-                </div>
-                <div className="space-y-1">
-                    <div className="text-2xl font-bold text-white">Fast</div>
-                    <div className="text-xs uppercase tracking-widest text-zinc-500">Render</div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-12 text-center opacity-40 pt-12 border-t border-white/5 mx-auto max-w-2xl">
+                    <div className="space-y-1">
+                        <div className="text-2xl font-bold text-white">2.5 Pro</div>
+                        <div className="text-xs uppercase tracking-widest text-zinc-500">Model</div>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="text-2xl font-bold text-white">4K</div>
+                        <div className="text-xs uppercase tracking-widest text-zinc-500">Export</div>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="text-2xl font-bold text-white">Multi</div>
+                        <div className="text-xs uppercase tracking-widest text-zinc-500">Sources</div>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="text-2xl font-bold text-white">Fast</div>
+                        <div className="text-xs uppercase tracking-widest text-zinc-500">Render</div>
+                    </div>
                 </div>
             </div>
         </div>

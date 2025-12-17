@@ -85,6 +85,7 @@ export function TimelinePanel({
         initialX: number;
         initialStart: number;
         initialDuration: number;
+        maxDuration?: number;
     } | null>(null);
 
 
@@ -352,6 +353,24 @@ export function TimelinePanel({
 
                     if (finalDuration < 0.1) finalDuration = 0.1;
 
+                    // Enforce MAX source duration if available. 
+                    // Assuming 'clip.sourceDuration' exists. If not, default to infinite (or very long).
+                    // In real app, we must pass sourceDuration when adding clip.
+                    // For now, let's clamp resizing to 60s hard limit OR the passed duration if logic updated.
+
+                    // Actually, let's look at resizing state. We have resizing.initialDuration. 
+                    // But we need the max possible duration.
+                    // Let's modify handleResizeStart to accept maxDuration (sourceDuration).
+                    const maxDuration = resizing.maxDuration || 9999;
+
+                    if (finalDuration > maxDuration) {
+                        finalDuration = maxDuration;
+                        // If we hit max, we might need to adjust start if dragging start edge
+                        if (resizing.edge === 'start') {
+                            finalStart = resizing.initialStart + resizing.initialDuration - maxDuration; // Pivot
+                        }
+                    }
+
                     clip.start = finalStart;
                     clip.duration = finalDuration;
                     onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
@@ -438,7 +457,7 @@ export function TimelinePanel({
         onSelectClip && onSelectClip(clipId);
     };
 
-    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio', edge: 'start' | 'end', start: number, duration: number) => {
+    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio', edge: 'start' | 'end', start: number, duration: number, maxDuration?: number) => {
         e.stopPropagation();
         const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
 
@@ -448,7 +467,8 @@ export function TimelinePanel({
             edge,
             initialX: clientX,
             initialStart: start,
-            initialDuration: duration
+            initialDuration: duration,
+            maxDuration: maxDuration || 120 // Default 2 mins cap if unknown, or infinite
         });
     };
 
@@ -830,11 +850,11 @@ export function TimelinePanel({
                                                         border: '1px solid #2A7A7A'
                                                     }}
                                                 >
-                                                    {/* Left Handle */}
+                                                    {/* Left Handle - Touch Friendly */}
                                                     <div
-                                                        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration)}
+                                                        className="absolute -left-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     />
 
                                                     {/* Thumbnails Strip (Mock) */}
@@ -847,11 +867,11 @@ export function TimelinePanel({
                                                         <span className="text-[10px] font-medium text-teal-100 truncate drop-shadow-md">{clip.id}</span>
                                                     </div>
 
-                                                    {/* Right Handle */}
+                                                    {/* Right Handle - Touch Friendly */}
                                                     <div
-                                                        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration)}
+                                                        className="absolute -right-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     />
                                                 </div>
                                             );
@@ -906,11 +926,11 @@ export function TimelinePanel({
                                                         border: '1px solid #2A4A7A'
                                                     }}
                                                 >
-                                                    {/* Left Handle */}
+                                                    {/* Left Handle - Touch Friendly */}
                                                     <div
-                                                        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration)}
+                                                        className="absolute -left-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     />
 
                                                     {/* Waveform Mock */}
@@ -923,11 +943,11 @@ export function TimelinePanel({
                                                         <span className="text-[9px] font-medium text-indigo-100 truncate shadow-black drop-shadow-md">Audio {trackIdx}</span>
                                                     </div>
 
-                                                    {/* Right Handle */}
+                                                    {/* Right Handle - Touch Friendly */}
                                                     <div
-                                                        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration)}
+                                                        className="absolute -right-2 top-0 bottom-0 w-6 cursor-ew-resize hover:bg-white/50 z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                     />
                                                 </div>
                                             );

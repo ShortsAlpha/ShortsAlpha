@@ -82,12 +82,18 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
 
             await axios.put(uploadUrl, file, { headers: { "Content-Type": file.type } });
 
+            const isAudio = file.type.startsWith('audio/') ||
+                file.name.toLowerCase().endsWith('.mp3') ||
+                file.name.toLowerCase().endsWith('.wav') ||
+                file.name.toLowerCase().endsWith('.m4a');
+
             const newAsset = {
                 id: key,
                 title: file.name,
                 url: publicUrl,
-                type: file.type.startsWith('audio/') ? 'audio' : 'video',
-                category: 'User Uploads'
+                type: isAudio ? 'audio' : 'video',
+                category: 'User Uploads',
+                duration: 10 // Default fallback, should extract real duration later
             };
 
             setUserAssets([newAsset, ...userAssets]);
