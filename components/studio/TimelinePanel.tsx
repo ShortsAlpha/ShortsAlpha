@@ -29,6 +29,16 @@ interface TimelinePanelProps {
     onExternalDragEnd?: () => void;
 }
 
+// Helper to get duration (Defined outside to avoid dependency loops)
+const getMediaDuration = (url: string, type: 'video' | 'audio'): Promise<number> => {
+    return new Promise((resolve) => {
+        const el = document.createElement(type);
+        el.src = url;
+        el.onloadedmetadata = () => resolve(el.duration);
+        el.onerror = () => resolve(30); // Fallback
+    });
+};
+
 export function TimelinePanel({
     script,
     videoTracks,
@@ -245,7 +255,7 @@ export function TimelinePanel({
 
         window.addEventListener('touchend', handleExternalTouchEnd);
         return () => window.removeEventListener('touchend', handleExternalTouchEnd);
-    }, [externalDragItem, videoTracks, audioTracks, PIXELS_PER_SECOND, onExternalDragEnd, onUpdateVideoTracks, onUpdateAudioTracks, getMediaDuration]);
+    }, [externalDragItem, videoTracks, audioTracks, PIXELS_PER_SECOND, onExternalDragEnd, onUpdateVideoTracks, onUpdateAudioTracks]);
 
     // Internal Drag Logic
     useEffect(() => {
