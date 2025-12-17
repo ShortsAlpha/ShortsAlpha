@@ -1,0 +1,6 @@
+modal
+google-generativeai
+requests
+ffmpeg-python
+fastapi
+boto3
