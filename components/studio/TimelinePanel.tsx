@@ -359,22 +359,41 @@ export function TimelinePanel({
 
                     // Update Tracks
                     if (moving.type === 'video') {
+                        const TRACK_HEIGHT = 64 + 4; // h-16 + gap-1 (approx)
+                        const trackDiff = Math.round(deltaY / TRACK_HEIGHT);
+                        let newTrackIndex = (moving.originalTrackIndex || 0) + trackDiff;
+
+                        // Limit tracks (0 to 2 for now, or dynamic based on layers)
+                        // defined via videoLayers.length
+                        // We need access to videoLayers or just clamp to sensible max
+                        // Assume max 5 tracks for safety or clamp to 0..4
+                        newTrackIndex = Math.max(0, Math.min(newTrackIndex, 4));
+
                         const clipIndex = currentVideoTracks.findIndex(c => c.id === moving.id);
                         if (clipIndex !== -1) {
                             const newTracks = [...currentVideoTracks];
-                            // Handle Track Switching
-                            // Calculate Track Index based on Y? 
-                            // For simplicity, just update Time for now. Track switching via Drag is complex due to header alignment.
-                            // ... If user wants Y drag, we need row height math.
-                            // Assuming sticky rows.
-                            newTracks[clipIndex] = { ...newTracks[clipIndex], start: newStart };
+                            // Update both Start Time and Track Index
+                            newTracks[clipIndex] = {
+                                ...newTracks[clipIndex],
+                                start: newStart,
+                                trackIndex: newTrackIndex
+                            };
                             onUpdateVideoTracks(newTracks);
                         }
                     } else {
-                        const clipIndex = currentAudioTracks.findIndex(t => t.id === moving.id);
+                        const TRACK_HEIGHT = 48 + 4; // h-12 + gap-1
+                        const trackDiff = Math.round(deltaY / TRACK_HEIGHT);
+                        let newTrackIndex = (moving.originalTrackIndex || 0) + trackDiff;
+                        newTrackIndex = Math.max(0, Math.min(newTrackIndex, 4));
+
+                        const clipIndex = currentAudioTracks.findIndex(c => c.id === moving.id);
                         if (clipIndex !== -1) {
                             const newTracks = [...currentAudioTracks];
-                            newTracks[clipIndex] = { ...newTracks[clipIndex], start: newStart };
+                            newTracks[clipIndex] = {
+                                ...newTracks[clipIndex],
+                                start: newStart,
+                                trackIndex: newTrackIndex
+                            };
                             onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
                         }
                     }
