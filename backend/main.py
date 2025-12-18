@@ -322,10 +322,10 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             return None
 
     # Status Helper
-    def update_status(msg, percent=0):
+    def update_status(msg, percent=0, status="processing"):
         try:
             status_key = f"{output_key}_status.json"
-            status_data = {"status": "processing", "message": msg, "percent": percent, "timestamp": time.time()}
+            status_data = {"status": status, "message": msg, "percent": percent, "timestamp": time.time()}
             s3_client.put_object(
                 Bucket=r2_creds['bucket_name'],
                 Key=status_key,
@@ -536,7 +536,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
         # url = f"https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/{output_key}"
             
         print("Render Success!")
-        update_status("Finalizing...", 100)
+        update_status("Finalizing...", 100, status="finished")
         return {"status": "completed", "key": output_key}
 
     except Exception as e:

@@ -384,6 +384,15 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                     const statusCheck = await fetch(statusUrl + "?t=" + Date.now()); // Prevent caching
                     if (statusCheck.ok) {
                         const data = await statusCheck.json();
+
+                        // Check for explicit finished status (Robustness for iOS)
+                        if (data.status === 'finished' || data.status === 'success') {
+                            setFinalDownloadUrl(publicDownloadUrl);
+                            setExportStatus('finished');
+                            setDetailedStatus("Ready for download!");
+                            return;
+                        }
+
                         if (data.message) {
                             setDetailedStatus(data.message);
                         }
