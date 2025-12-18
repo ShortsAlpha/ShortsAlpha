@@ -65,6 +65,8 @@ export function ExportModal({ isOpen, status, detailedStatus, downloadUrl, error
                                     src={downloadUrl}
                                     controls
                                     autoPlay
+                                    playsInline
+                                    muted
                                     className="w-full h-full object-contain"
                                 />
                             </div>
