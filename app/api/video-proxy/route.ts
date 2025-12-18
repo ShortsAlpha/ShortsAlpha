@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { s3Client, BUCKET_NAME } from '@/lib/s3Client';
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
-export const runtime = 'nodejs'; // Node runtime needed for heavier streaming if edge has limits (though edge is usually better for streaming, node is safer for AWS SDK compatibility sometimes)
-// actually, let's use nodejs to avoid edge compatibility issues with some aws-sdk versions if not bundled right.
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -14,32 +13,52 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const command = new GetObjectCommand({
+        const isDownload = searchParams.get('download') === 'true';
+        const range = request.headers.get('range');
+
+        const getParams: any = {
             Bucket: BUCKET_NAME,
             Key: key,
-        });
+        };
 
+        if (range && !isDownload) {
+            getParams.Range = range;
+        }
+
+        const command = new GetObjectCommand(getParams);
         const response = await s3Client.send(command);
 
         // Convert the stream to a Web Stream for NextResponse
-        const stream = response.Body as any; // Cast to bypass type issues with Node streams vs Web streams
-
-        const isDownload = searchParams.get('download') === 'true';
+        const stream = response.Body as any;
 
         // Pass specific headers for video playback
         const headers = new Headers();
         headers.set('Content-Type', 'video/mp4');
-        headers.set('Content-Length', response.ContentLength?.toString() || '');
-        headers.set('Content-Disposition', isDownload ? 'attachment; filename="export.mp4"' : 'inline; filename="export.mp4"');
-        headers.set('Cache-Control', 'public, max-age=3600');
         headers.set('Access-Control-Allow-Origin', '*');
 
-        return new NextResponse(stream, {
-            status: 200,
-            headers,
-        });
+        if (isDownload) {
+            headers.set('Content-Disposition', 'attachment; filename="export.mp4"');
+            headers.set('Content-Length', response.ContentLength?.toString() || '');
+            headers.set('Cache-Control', 'public, max-age=3600');
+            return new NextResponse(stream, { status: 200, headers });
+        } else {
+            headers.set('Content-Disposition', 'inline; filename="export.mp4"');
+            headers.set('Cache-Control', 'public, max-age=3600');
 
-    } catch (error) {
+            // Handle Range Response
+            if (response.ContentRange) {
+                headers.set('Content-Range', response.ContentRange);
+                headers.set('Content-Length', response.ContentLength?.toString() || '');
+                headers.set('Accept-Ranges', 'bytes');
+                return new NextResponse(stream, { status: 206, headers });
+            } else {
+                headers.set('Content-Length', response.ContentLength?.toString() || '');
+                headers.set('Accept-Ranges', 'bytes');
+                return new NextResponse(stream, { status: 200, headers });
+            }
+        }
+
+    } catch (error: any) {
         console.error("Proxy Error:", error);
         return NextResponse.json({ error: 'Failed to fetch video', details: String(error) }, { status: 500 });
     }

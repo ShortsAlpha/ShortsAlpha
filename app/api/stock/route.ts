@@ -26,11 +26,17 @@ export async function GET(request: NextRequest) {
             const signedUrl = await getSignedUrl(s3Client, getCommand, { expiresIn: 604800 }); // 7 Days
 
             const filename = key.split('/').pop() || "Untitled";
+            // Pretty Print Title: Remove extension, replace _/- with space, Capitalize
+            const cleanTitle = filename
+                .replace(/\.[^/.]+$/, "") // Remove ext
+                .replace(/[_-]/g, " ") // Replace separators
+                .replace(/\b\w/g, c => c.toUpperCase()); // Capitalize
+
             // Heuristic for type
             const isAudio = filename.endsWith('.mp3') || filename.endsWith('.wav') || filename.endsWith('.m4a');
             return {
                 id: key,
-                title: filename, // Ideally stored in metadata, but filename works for now
+                title: cleanTitle,
                 url: signedUrl,
                 type: isAudio ? 'audio' : 'video',
                 category: 'Stock',

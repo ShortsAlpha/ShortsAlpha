@@ -781,7 +781,7 @@ def cleanup_old_files():
 
         deleted_count = 0
         now = datetime.utcnow()
-        retention_period = timedelta(hours=24)
+        retention_period = timedelta(hours=5) # Changed from 24h to 5h as requested
 
         for page in page_iterator:
             if 'Contents' not in page:
@@ -789,6 +789,11 @@ def cleanup_old_files():
                 
             for obj in page['Contents']:
                 key = obj['Key']
+                
+                # SAFETY: Never delete Stock assets
+                if "stock/" in key:
+                    continue
+
                 last_modified = obj['LastModified'].replace(tzinfo=None) # Make naive
                 
                 # Check age
