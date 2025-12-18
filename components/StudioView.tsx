@@ -370,8 +370,8 @@ export function StudioView({ analysisResult }: StudioViewProps) {
             }
 
             try {
-                // Check if file exists via HEAD
-                const check = await fetch(publicDownloadUrl, { method: 'HEAD' });
+                // Check if file exists via HEAD (with cache busting)
+                const check = await fetch(publicDownloadUrl + "?t=" + Date.now(), { method: 'HEAD', cache: 'no-store' });
                 if (check.ok) {
                     setFinalDownloadUrl(publicDownloadUrl);
                     setExportStatus('finished');
