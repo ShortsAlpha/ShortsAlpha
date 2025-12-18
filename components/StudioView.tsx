@@ -529,7 +529,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 downloadUrl={finalDownloadUrl}
                 errorMessage={exportError}
                 onClose={() => setIsExportModalOpen(false)}
-                onDownload={triggerDownload}
+                onDownload={() => window.open(finalDownloadUrl!, '_blank')}
             />
 
             {/* MAIN WORKSPACE - Header Removed for more space */}

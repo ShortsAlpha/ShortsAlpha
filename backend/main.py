@@ -533,7 +533,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             output_path, 
             r2_creds['bucket_name'], 
             output_key,
-            ExtraArgs={'ContentType': 'video/mp4', 'ContentDisposition': 'attachment'} # Force Download
+            ExtraArgs={'ContentType': 'video/mp4', 'ContentDisposition': 'inline'} # Allow Inline Playback (Fixes iOS Player)
         )
         # Placeholder structure for URL (adjust as needed for public access)
         # url = f"https://{r2_creds['bucket_name']}.{r2_creds['account_id']}.r2.cloudflarestorage.com/{output_key}" 
