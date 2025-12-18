@@ -378,7 +378,8 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 if (fileCheck.ok) {
                     const fileData = await fileCheck.json();
                     if (fileData.status === 'ready') {
-                        setFinalDownloadUrl(publicDownloadUrl);
+                        const proxyVideoUrl = `/api/video-proxy?key=${outputKey}`;
+                        setFinalDownloadUrl(proxyVideoUrl);
                         setExportStatus('finished');
                         setDetailedStatus("Ready for download!");
                         return;
@@ -395,7 +396,8 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
                         // Check for explicit finished status (Robustness for iOS)
                         if (data.status === 'finished' || data.status === 'success') {
-                            setFinalDownloadUrl(publicDownloadUrl);
+                            const proxyVideoUrl = `/api/video-proxy?key=${outputKey}`;
+                            setFinalDownloadUrl(proxyVideoUrl);
                             setExportStatus('finished');
                             setDetailedStatus("Ready for download!");
                             return;
