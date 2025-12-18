@@ -170,17 +170,50 @@ export function TimelinePanel({
         const handleGlobalMouseMove = (e: MouseEvent) => {
             if (scrollContainerRef.current) {
                 const rect = scrollContainerRef.current.getBoundingClientRect();
-                // Check if mouse is within vertical bounds of timeline (optional, but good for UX)
-                // Actually user wants "long bar" so it should probably just track X relative to container
-                const x = e.clientX - rect.left + scrollContainerRef.current.scrollLeft;
+                const scrollLeft = scrollContainerRef.current.scrollLeft;
+
+                // Calculate cursor position in seconds
+                let x = e.clientX - rect.left + scrollLeft;
+                const time = x / PIXELS_PER_SECOND;
+
+                // SNAP LOGIC
+                const SNAP_THRESHOLD = 0.3; // seconds
+                let bestSnapTime: number | null = null;
+                let minDiff = SNAP_THRESHOLD;
+
+                const allClips = [...videoTracks, ...audioTracks];
+                const snapPoints = [0]; // Always snap to start
+
+                // Collect snap points (start and end of all clips)
+                allClips.forEach(c => {
+                    snapPoints.push(c.start);
+                    snapPoints.push(c.start + c.duration);
+                });
+
+                // Find nearest snap point
+                for (const point of snapPoints) {
+                    const diff = Math.abs(time - point);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        bestSnapTime = point;
+                    }
+                }
+
+                // If close enough, snap!
+                if (bestSnapTime !== null) {
+                    x = bestSnapTime * PIXELS_PER_SECOND;
+                }
+
                 setRazorLineX(x);
             }
         };
 
         window.addEventListener('mousemove', handleGlobalMouseMove);
-        return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
 
-    }, [activeTool]);
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+        };
+    }, [activeTool, videoTracks, audioTracks, PIXELS_PER_SECOND]);
 
 
     // Moving State (Manual Drag)

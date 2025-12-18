@@ -202,7 +202,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 timeout: 300000 // 5 minutes timeout for Gemini 2.5 Pro Audio
             });
 
-            if (response.data.status === 'success' && Array.isArray(response.data.subtitles)) {
+            if ((response.data.status === 'success' || response.data.status === 'mock_success') && Array.isArray(response.data.subtitles)) {
                 // Map to Track interface
                 const newSubs: Track[] = response.data.subtitles.map((sub: any) => ({
                     id: `sub_${Math.random().toString(36).substr(2, 9)}`,
