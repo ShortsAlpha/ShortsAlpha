@@ -118,9 +118,10 @@ export function AssetPanel({
             const finalFilename = isStock ? `${customName}.${extension}` : file.name;
 
             const { data: { uploadUrl, key, publicUrl } } = await axios.post("/api/upload", {
-                filename: finalFilename,
+                filename: file.name, // Send original filename for extension extraction
                 contentType: file.type,
-                prefix: folder
+                prefix: folder,
+                customName: isStock ? customName : undefined // Send custom name for smart key generation
             });
 
             await axios.put(uploadUrl, file, { headers: { "Content-Type": file.type } });
