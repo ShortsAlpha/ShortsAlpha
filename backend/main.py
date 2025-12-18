@@ -508,7 +508,12 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             audio_fps=44100,
             threads=4, # Multithreading enabled
             preset='fast', 
-            ffmpeg_params=['-pix_fmt', 'yuv420p'], # iOS Compatibility
+            ffmpeg_params=[
+                '-pix_fmt', 'yuv420p',
+                '-profile:v', 'baseline',
+                '-level', '3.0',
+                '-movflags', '+faststart'
+            ], # Maximum iOS Compatibility
             logger=None # Disable progress bar to prevent deadlocks
         )
         
