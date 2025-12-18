@@ -24,11 +24,13 @@ export async function GET(request: NextRequest) {
         // Convert the stream to a Web Stream for NextResponse
         const stream = response.Body as any; // Cast to bypass type issues with Node streams vs Web streams
 
+        const isDownload = searchParams.get('download') === 'true';
+
         // Pass specific headers for video playback
         const headers = new Headers();
         headers.set('Content-Type', 'video/mp4');
         headers.set('Content-Length', response.ContentLength?.toString() || '');
-        headers.set('Content-Disposition', 'inline; filename="export.mp4"');
+        headers.set('Content-Disposition', isDownload ? 'attachment; filename="export.mp4"' : 'inline; filename="export.mp4"');
         headers.set('Cache-Control', 'public, max-age=3600');
         headers.set('Access-Control-Allow-Origin', '*');
 

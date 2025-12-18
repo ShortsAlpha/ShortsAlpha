@@ -496,10 +496,18 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
     const triggerDownload = () => {
         if (!finalDownloadUrl) return;
+
+        // Append download=true to the proxy URL to force attachment header
+        const downloadUrl = finalDownloadUrl.includes('?')
+            ? `${finalDownloadUrl}&download=true`
+            : `${finalDownloadUrl}?download=true`;
+
         const link = document.createElement('a');
-        link.href = finalDownloadUrl;
-        link.download = `export.mp4`;
+        link.href = downloadUrl;
+        link.download = `export.mp4`; // This attribute is often ignored by iOS, but the header will force it
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
     };
 
     const handleExitProject = () => {
@@ -531,7 +539,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                 downloadUrl={finalDownloadUrl}
                 errorMessage={exportError}
                 onClose={() => setIsExportModalOpen(false)}
-                onDownload={() => window.open(finalDownloadUrl!, '_blank')}
+                onDownload={triggerDownload}
             />
 
             {/* MAIN WORKSPACE - Header Removed for more space */}
