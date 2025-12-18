@@ -370,18 +370,26 @@ export function StudioView({ analysisResult }: StudioViewProps) {
             }
 
             try {
-                // Check if file exists via HEAD (with cache busting)
-                const check = await fetch(publicDownloadUrl + "?t=" + Date.now(), { method: 'HEAD', cache: 'no-store' });
-                if (check.ok) {
-                    setFinalDownloadUrl(publicDownloadUrl);
-                    setExportStatus('finished');
-                    setDetailedStatus("Ready for download!");
-                    return;
+                // Check if file exists via PROXY HEAD (Robust)
+                // We use the same proxy endpoint. If it returns 'ready', header is 200.
+                const proxyFileUrl = `/api/poll-render?url=${encodeURIComponent(publicDownloadUrl)}&t=${Date.now()}`;
+                const fileCheck = await fetch(proxyFileUrl);
+
+                if (fileCheck.ok) {
+                    const fileData = await fileCheck.json();
+                    if (fileData.status === 'ready') {
+                        setFinalDownloadUrl(publicDownloadUrl);
+                        setExportStatus('finished');
+                        setDetailedStatus("Ready for download!");
+                        return;
+                    }
                 }
 
-                // Check for detailed status JSON
+                // Check for detailed status JSON via PROXY (Bypasses CORS/Caching on iOS)
                 try {
-                    const statusCheck = await fetch(statusUrl + "?t=" + Date.now()); // Prevent caching
+                    const proxyUrl = `/api/poll-render?url=${encodeURIComponent(statusUrl)}&t=${Date.now()}`;
+                    const statusCheck = await fetch(proxyUrl);
+
                     if (statusCheck.ok) {
                         const data = await statusCheck.json();
 

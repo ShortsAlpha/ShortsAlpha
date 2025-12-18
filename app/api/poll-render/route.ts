@@ -12,9 +12,21 @@ export async function GET(request: NextRequest) {
 
     try {
         // Server-side fetch (no CORS limitations)
-        const response = await fetch(url, { method: 'HEAD' });
+        const response = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
 
         if (response.ok) {
+            // If it's a JSON status file, return the body
+            if (url.endsWith('.json')) {
+                const data = await response.json();
+                return NextResponse.json(data);
+            }
+            // If it's the video file, just confirm existence
             return NextResponse.json({ status: 'ready' });
         } else {
             return NextResponse.json({ status: 'pending' }, { status: 404 });
