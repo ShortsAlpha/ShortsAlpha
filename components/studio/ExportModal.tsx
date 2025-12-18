@@ -1,11 +1,13 @@
+
 import React from 'react';
 import { Loader2, CheckCircle2, Download, AlertCircle, X } from 'lucide-react';
 
-export type ExportStatus = 'idle' | 'uploading' | 'rendering' | 'ready' | 'failed';
+export type ExportStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'failed' | 'finished';
 
 interface ExportModalProps {
     isOpen: boolean;
     status: ExportStatus;
+    detailedStatus?: string | null;
     downloadUrl: string | null;
     errorMessage?: string | null;
     onClose: () => void;
@@ -13,7 +15,7 @@ interface ExportModalProps {
     onCloseComplete?: () => void; // Called when closing after success
 }
 
-export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose, onDownload }: ExportModalProps) {
+export function ExportModal({ isOpen, status, detailedStatus, downloadUrl, errorMessage, onClose, onDownload }: ExportModalProps) {
     if (!isOpen) return null;
 
     const steps = [
@@ -22,40 +24,40 @@ export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose
             label: 'Preparing Assets',
             description: 'Uploading project files to cloud',
             isActive: status === 'uploading',
-            isDone: ['rendering', 'ready'].includes(status)
+            isDone: ['processing', 'success', 'finished'].includes(status)
         },
         {
             id: 'rendering',
             label: 'Cloud Rendering',
-            description: 'Processing video on high-performance server',
-            isActive: status === 'rendering',
-            isDone: ['ready'].includes(status)
+            description: (status === 'processing' && detailedStatus) ? detailedStatus : 'Processing video on high-performance server',
+            isActive: status === 'processing',
+            isDone: ['success', 'finished'].includes(status)
         },
         {
             id: 'ready',
             label: 'Finalizing',
             description: 'Video is ready for download',
-            isActive: status === 'ready',
-            isDone: status === 'ready'
+            isActive: status === 'finished' || status === 'success',
+            isDone: status === 'finished' || status === 'success'
         }
     ];
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className={`bg-zinc-900 border border-zinc-800 rounded-2xl w-full shadow-2xl p-6 relative transition-all duration-500 ${status === 'ready' ? 'max-w-4xl' : 'max-w-md'}`}>
+            <div className={`bg-zinc-900 border border-zinc-800 rounded-2xl w-full shadow-2xl p-6 relative transition-all duration-500 ${status === 'finished' || status === 'success' ? 'max-w-4xl' : 'max-w-md'}`}>
 
                 {/* Close / Cancel Button */}
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-2 hover:bg-zinc-800 rounded-full"
-                    title={status === 'ready' || status === 'failed' ? "Close" : "Cancel Rendering"}
+                    title={status === 'finished' || status === 'success' || status === 'failed' ? "Close" : "Cancel Rendering"}
                 >
                     <X className="w-5 h-5" />
                 </button>
 
                 <div className="flex flex-col md:flex-row gap-8">
-                    {/* Left Column: Preview (Only visible when ready) */}
-                    {status === 'ready' && downloadUrl && (
+                    {/* Left Column: Preview (Only visible when finished) */}
+                    {(status === 'finished' || status === 'success') && downloadUrl && (
                         <div className="flex-1 animate-in slide-in-from-right-10 fade-in duration-500">
                             <h3 className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-3">Preview</h3>
                             <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden border border-zinc-700 shadow-inner relative group">
@@ -74,7 +76,7 @@ export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose
                         <div className="text-center mb-8">
                             <h2 className="text-xl font-bold text-white mb-2">Exporting Video</h2>
                             <p className="text-sm text-zinc-400">
-                                {status === 'ready' ? 'Your video is ready!' : 'Please wait while we process your masterpiece.'}
+                                {(status === 'finished' || status === 'success') ? 'Your video is ready!' : 'Please wait while we process your masterpiece.'}
                             </p>
                         </div>
 
@@ -97,11 +99,11 @@ export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose
 
                                         {/* Connector Line */}
                                         {idx < steps.length - 1 && (
-                                            <div className={`absolute left-3 top-7 w-px h-10 ${step.isDone ? 'bg-green-500/30' : 'bg-zinc-800'}`} />
+                                            <div className={`absolute left - 3 top - 7 w - px h - 10 ${step.isDone ? 'bg-green-500/30' : 'bg-zinc-800'} `} />
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className={`font-medium ${step.isActive || step.isDone ? 'text-zinc-200' : 'text-zinc-500'}`}>
+                                        <h3 className={`font - medium ${step.isActive || step.isDone ? 'text-zinc-200' : 'text-zinc-500'} `}>
                                             {step.label}
                                         </h3>
                                         {(step.isActive) && (
@@ -128,16 +130,16 @@ export function ExportModal({ isOpen, status, downloadUrl, errorMessage, onClose
                         {/* Action Button */}
                         <button
                             onClick={onDownload}
-                            disabled={status !== 'ready'}
+                            disabled={status !== 'finished' && status !== 'success'}
                             className={`
                                 w-full py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition-all
-                                ${status === 'ready'
+                                ${status === 'finished' || status === 'success'
                                     ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white shadow-lg shadow-green-500/20 scale-100'
                                     : 'bg-zinc-800 text-zinc-500 cursor-not-allowed grayscale'
                                 }
                             `}
                         >
-                            <Download className={`w-5 h-5 ${status === 'ready' ? 'animate-bounce' : ''}`} />
+                            <Download className={`w-5 h-5 ${(status === 'finished' || status === 'success') ? 'animate-bounce' : ''}`} />
                             <span>Download Project</span>
                         </button>
                     </div>

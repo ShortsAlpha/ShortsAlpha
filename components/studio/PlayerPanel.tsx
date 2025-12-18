@@ -44,76 +44,16 @@ export function PlayerPanel({
     const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
     const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
 
-    // Web Audio Context & Nodes
-    const audioCtxRef = useRef<AudioContext | null>(null);
-    const gainNodesRef = useRef<{ [key: string]: GainNode }>({});
-    const sourceNodesRef = useRef<{ [key: string]: MediaElementAudioSourceNode }>({});
-
-    // Initialize Audio Context on first interaction
-    useEffect(() => {
-        const initAudio = () => {
-            if (!audioCtxRef.current) {
-                // @ts-ignore
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (AudioContextClass) {
-                    audioCtxRef.current = new AudioContextClass();
-                }
-            }
-            if (audioCtxRef.current?.state === 'suspended') {
-                audioCtxRef.current.resume();
-            }
-        };
-
-        const handleInteraction = () => initAudio();
-        window.addEventListener('click', handleInteraction);
-        window.addEventListener('touchstart', handleInteraction); // iOS
-
-        return () => {
-            window.removeEventListener('click', handleInteraction);
-            window.removeEventListener('touchstart', handleInteraction);
-            // Don't close context, reuse it.
-        };
-    }, []);
-
-    // Helper: Connect Element to Audio Graph
-    const connectToAudioGraph = (id: string, element: HTMLMediaElement) => {
-        if (!audioCtxRef.current) return;
-
-        // Prevent double connection
-        if (sourceNodesRef.current[id]) return;
-
-        try {
-            const source = audioCtxRef.current.createMediaElementSource(element);
-            const gainNode = audioCtxRef.current.createGain();
-
-            source.connect(gainNode);
-            gainNode.connect(audioCtxRef.current.destination);
-
-            sourceNodesRef.current[id] = source;
-            gainNodesRef.current[id] = gainNode;
-        } catch (e) {
-            console.warn("Web Audio Connection Failed (likely CORS):", id, e);
-        }
-    };
-
     // Sync Playback & Time & Volume
     useEffect(() => {
-        if (audioCtxRef.current?.state === 'suspended' && isPlaying) {
-            audioCtxRef.current.resume();
-        }
+        // Removed audioCtxRef resume logic
 
         // Sync Videos
         activeVideoClips.forEach(clip => {
             const el = videoRefs.current[clip.id];
             if (el) {
-                // Connect Audio Graph on first use
-                if (audioCtxRef.current && !sourceNodesRef.current[clip.id]) {
-                    connectToAudioGraph(clip.id, el);
-                }
-
                 // Time Sync
                 const localTime = Math.max(0, currentTime - clip.start);
-                // Allow small drift for performance, but sync logic needs to be tight
                 if (Math.abs(el.currentTime - localTime) > 0.5) {
                     el.currentTime = localTime;
                 }
@@ -121,18 +61,13 @@ export function PlayerPanel({
                 if (isPlaying && el.paused) el.play().catch(() => { });
                 if (!isPlaying && !el.paused) el.pause();
 
-                // Volume (GAIN)
+                // Volume
                 const trackIdx = clip.trackIndex || 0;
                 const isTrackMuted = videoTrackState[trackIdx]?.muted;
                 const targetVol = isTrackMuted ? 0 : (clip.volume ?? 1);
 
-                if (gainNodesRef.current[clip.id]) {
-                    gainNodesRef.current[clip.id].gain.value = targetVol;
-                    el.volume = 1;
-                    el.muted = false;
-                } else {
-                    el.volume = Math.min(1, Math.max(0, targetVol));
-                }
+                el.volume = Math.min(1, Math.max(0, targetVol));
+                el.muted = false;
             }
         });
 
@@ -140,14 +75,33 @@ export function PlayerPanel({
         audioTracks.forEach(track => {
             const el = audioRefs.current[track.id];
             if (el) {
-                if (audioCtxRef.current && !sourceNodesRef.current[track.id]) {
-                    connectToAudioGraph(track.id, el);
-                }
+                // Determine effective end time (handle NaN duration)
+                const duration = Number.isFinite(track.duration) ? track.duration : 300;
+                const endTime = track.start + duration;
 
-                if (currentTime >= track.start && currentTime < track.start + track.duration) {
+                // Debug Logging
+                // console.log(`Audio Track ${track.id}:`, { 
+                //    currentTime, 
+                //    trackStart: track.start, 
+                //    trackEnd: endTime,
+                //    elPaused: el.paused, 
+                //    elVolume: el.volume,
+                //    elError: el.error 
+                // });
+
+                if (currentTime >= track.start && currentTime < endTime) {
                     const localTime = Math.max(0, currentTime - track.start);
+                    // Only sync if drift is significant to avoid stutter
                     if (Math.abs(el.currentTime - localTime) > 0.5) el.currentTime = localTime;
-                    if (isPlaying && el.paused) el.play().catch(() => { });
+
+                    if (isPlaying && el.paused) {
+                        const playPromise = el.play();
+                        if (playPromise !== undefined) {
+                            playPromise.catch((e) => {
+                                if (e.name !== 'AbortError') console.warn("Audio Play Error:", track.id, e);
+                            });
+                        }
+                    }
                     if (!isPlaying && !el.paused) el.pause();
                 } else {
                     if (!el.paused) el.pause();
@@ -157,15 +111,13 @@ export function PlayerPanel({
                 const isTrackMuted = audioTrackState[trackIdx]?.muted;
                 const targetVol = isTrackMuted ? 0 : (track.volume ?? 1);
 
-                if (gainNodesRef.current[track.id]) {
-                    gainNodesRef.current[track.id].gain.value = targetVol;
-                    el.volume = 1;
-                } else {
-                    el.volume = Math.min(1, Math.max(0, targetVol));
-                }
+                // Volume Debug
+                if (targetVol === 0) console.warn("Audio Track Muted via Logic", track.id);
+
+                // Direct Volume Control
+                el.volume = Math.min(1, Math.max(0, targetVol));
             }
         });
-
     }, [currentTime, isPlaying, activeVideoClips, audioTracks, videoTrackState, audioTrackState]);
 
 
@@ -190,6 +142,9 @@ export function PlayerPanel({
             initialY: currentY  // Normalized 0-1
         });
     };
+
+    // Snap Guides State
+    const [snapGuides, setSnapGuides] = useState<{ x: boolean, y: boolean }>({ x: false, y: false });
 
     // Calculate Active Text Clips
     const activeTextClips = (textTracks || []).filter(t =>
@@ -218,6 +173,25 @@ export function PlayerPanel({
                 newX = Math.max(0, Math.min(1, newX));
                 newY = Math.max(0, Math.min(1, newY));
 
+                // SNAPPING LOGIC
+                const SNAP_THRESHOLD = 0.03; // 3%
+                let snappedX = false;
+                let snappedY = false;
+
+                // Center X Snap
+                if (Math.abs(newX - 0.5) < SNAP_THRESHOLD) {
+                    newX = 0.5;
+                    snappedX = true;
+                }
+
+                // Center Y Snap
+                if (Math.abs(newY - 0.5) < SNAP_THRESHOLD) {
+                    newY = 0.5;
+                    snappedY = true;
+                }
+
+                setSnapGuides({ x: snappedX, y: snappedY });
+
                 // Update CLIP logic
                 if (onUpdateTextTracks) {
                     const tracks = [...(textTracks || [])];
@@ -237,6 +211,7 @@ export function PlayerPanel({
 
         const handleMouseUp = () => {
             setDraggingText(null);
+            setSnapGuides({ x: false, y: false });
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -252,7 +227,6 @@ export function PlayerPanel({
         <div
             ref={containerRef}
             className="w-full h-full relative cursor-pointer group bg-black"
-            onClick={onTogglePlay}
         >
             {/* 1. Video Layers */}
             {activeVideoClips.length > 0 ? (
@@ -295,6 +269,16 @@ export function PlayerPanel({
                 </div>
             )}
 
+
+
+            {/* Snap Guides */}
+            {snapGuides.x && (
+                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-indigo-500 z-40 transform -translate-x-1/2 shadow-[0_0_4px_rgba(99,102,241,0.8)]" />
+            )}
+            {snapGuides.y && (
+                <div className="absolute left-0 right-0 top-1/2 h-px bg-indigo-500 z-40 transform -translate-y-1/2 shadow-[0_0_4px_rgba(99,102,241,0.8)]" />
+            )}
+
             {/* 2. Text Overlays (Draggable) */}
             {activeTextClips.map((clip) => {
                 const style = clip.style || {};
@@ -313,10 +297,18 @@ export function PlayerPanel({
                             left: `${x}%`,
                             top: `${y}%`,
                             transform: 'translate(-50%, -50%)', // Center pivot
-                            color: style.color || '#white',
+                            color: style.color || '#ffffff',
                             fontSize: `${style.fontSize || 24}px`,
                             fontFamily: style.fontFamily || 'sans-serif',
-                            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                            fontWeight: style.fontWeight || 'normal',
+                            fontStyle: style.fontStyle || 'normal',
+                            textDecoration: style.textDecoration || 'none',
+                            textTransform: style.textTransform || 'none',
+                            textShadow: style.shadow || '0 2px 4px rgba(0,0,0,0.8)',
+                            WebkitTextStroke: style.strokeWidth ? `${style.strokeWidth}px ${style.stroke}` : 'none',
+                            backgroundColor: style.backgroundColor || 'transparent',
+                            borderRadius: style.borderRadius || '0px',
+                            padding: style.padding || '0px',
                             whiteSpace: 'nowrap'
                         }}
                     >
@@ -325,8 +317,8 @@ export function PlayerPanel({
                 );
             })}
 
-            {/* 3. Audio Mixer Handlers (Hidden) */}
-            <div className="hidden">
+            {/* 3. Audio Mixer Handlers (Invisible but Rendered) */}
+            <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}>
                 {audioTracks.map(track => (
                     <audio
                         key={track.id}

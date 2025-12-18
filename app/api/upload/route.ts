@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export async function POST(request: NextRequest) {
     try {
-        const { filename, contentType } = await request.json();
+        const { filename, contentType, prefix } = await request.json();
 
         if (!filename || !contentType) {
             return NextResponse.json(
@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
         // Create a unique key for the file
         const uniqueId = uuidv4();
         const extension = filename.split(".").pop();
-        const key = `uploads/${uniqueId}.${extension}`;
+        const folder = prefix ? prefix.replace(/\/$/, "") : "uploads"; // Default or custom
+        const key = `${folder}/${uniqueId}.${extension}`;
 
         const command = new PutObjectCommand({
             Bucket: BUCKET_NAME,

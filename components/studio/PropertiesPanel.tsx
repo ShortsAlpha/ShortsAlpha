@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { Volume2, VolumeX, RotateCw, RefreshCcw, Monitor, Eraser, Wand2, Type } from "lucide-react";
+import { Volume2, VolumeX, RotateCw, RefreshCcw, Monitor, Eraser, Wand2, Type, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
+import { FONT_FAMILIES, SUBTITLE_PRESETS } from "./constants";
 
 interface PropertiesPanelProps {
     selectedClip: any;
     onUpdateClip: (id: string, updates: any) => void;
+    onApplyToAll?: (id: string, style: any) => void;
 }
 
-export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedClip, onUpdateClip, onApplyToAll }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<'basic' | 'remove_bg' | 'mask' | 'retouch'>('basic');
 
     // Convert Volume 0-1 to dB (-60 to 0)
@@ -45,10 +47,10 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
             {isVideo && (
                 <div className="flex items-center p-1 bg-zinc-900 m-2 rounded-lg border border-zinc-800 overflow-x-auto">
                     {[
-                        { id: 'basic', label: 'Temel', icon: null },
-                        { id: 'remove_bg', label: 'Arka planı kaldır', icon: Eraser },
-                        { id: 'mask', label: 'Maske', icon: Wand2 },
-                        { id: 'retouch', label: 'Rötuş yap', icon: Monitor }
+                        { id: 'basic', label: 'Basic', icon: null },
+                        { id: 'remove_bg', label: 'Remove BG', icon: Eraser },
+                        { id: 'mask', label: 'Mask', icon: Wand2 },
+                        { id: 'retouch', label: 'Retouch', icon: Monitor }
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -74,7 +76,7 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between group cursor-pointer">
                                     <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
-                                        <span className={activeTab === 'basic' ? "rotate-90" : ""}>▶</span> Dönüştürme
+                                        <span className={activeTab === 'basic' ? "rotate-90" : ""}>▶</span> Transform
                                     </h3>
                                     <div title="Reset">
                                         <RefreshCcw className="w-3 h-3 text-zinc-500 hover:text-white cursor-pointer"
@@ -87,7 +89,7 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                     {/* Scale */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                                            <span>Ölçek</span>
+                                            <span>Scale</span>
                                             <div className="flex items-center gap-1 bg-zinc-900 rounded px-1.5 py-0.5 border border-zinc-800">
                                                 <input
                                                     type="number"
@@ -111,7 +113,7 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                     {/* Position */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-[10px] text-zinc-500 mb-1">
-                                            <span>Konum</span>
+                                            <span>Position</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <div className="flex-1 flex items-center gap-2 bg-zinc-900 rounded px-2 py-1.5 border border-zinc-800">
@@ -138,7 +140,7 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                     {/* Rotation */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                                            <span>Döndür</span>
+                                            <span>Rotate</span>
                                             <div className="flex items-center gap-1 bg-zinc-900 rounded px-1.5 py-0.5 border border-zinc-800">
                                                 <input
                                                     type="number"
@@ -169,13 +171,13 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                         {isText && (
                             <div className="space-y-4">
                                 <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
-                                    <Type className="w-3.5 h-3.5" /> Metin
+                                    <Type className="w-3.5 h-3.5" /> Text
                                 </h3>
 
                                 <div className="space-y-4 pl-2 border-l border-zinc-800 ml-1">
                                     {/* Content */}
                                     <div className="space-y-2">
-                                        <span className="text-[10px] text-zinc-500">İçerik</span>
+                                        <span className="text-[10px] text-zinc-500">Content</span>
                                         <textarea
                                             value={selectedClip.text || ''}
                                             onChange={(e) => onUpdateClip(selectedClip.id, { text: e.target.value })}
@@ -184,16 +186,114 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                         />
                                     </div>
 
-                                    {/* Font Size */}
+
+
+                                    {/* Font & Style */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                                            <span>Boyut</span>
+                                            <span>Font & Style</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <select
+                                                value={selectedClip.style?.fontFamily || 'Inter'}
+                                                onChange={(e) => onUpdateClip(selectedClip.id, {
+                                                    style: { ...selectedClip.style, fontFamily: e.target.value }
+                                                })}
+                                                className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs text-white focus:outline-none"
+                                            >
+                                                {FONT_FAMILIES.map(font => (
+                                                    <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                                                        {font.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            <div className="flex bg-zinc-900 border border-zinc-800 rounded overflow-hidden">
+                                                <button
+                                                    onClick={() => onUpdateClip(selectedClip.id, {
+                                                        style: { ...selectedClip.style, fontWeight: selectedClip.style?.fontWeight === 'bold' ? 'normal' : 'bold' }
+                                                    })}
+                                                    className={`flex-1 py-1.5 hover:bg-zinc-800 flex items-center justify-center transition-colors ${selectedClip.style?.fontWeight === 'bold' ? 'text-white bg-zinc-800' : 'text-zinc-500'}`}
+                                                >
+                                                    <Bold className="w-3.5 h-3.5" />
+                                                </button>
+                                                <div className="w-px bg-zinc-800" />
+                                                <button
+                                                    onClick={() => onUpdateClip(selectedClip.id, {
+                                                        style: { ...selectedClip.style, fontStyle: selectedClip.style?.fontStyle === 'italic' ? 'normal' : 'italic' }
+                                                    })}
+                                                    className={`flex-1 py-1.5 hover:bg-zinc-800 flex items-center justify-center transition-colors ${selectedClip.style?.fontStyle === 'italic' ? 'text-white bg-zinc-800' : 'text-zinc-500'}`}
+                                                >
+                                                    <Italic className="w-3.5 h-3.5" />
+                                                </button>
+                                                <div className="w-px bg-zinc-800" />
+                                                <button
+                                                    onClick={() => onUpdateClip(selectedClip.id, {
+                                                        style: { ...selectedClip.style, textDecoration: selectedClip.style?.textDecoration === 'underline' ? 'none' : 'underline' }
+                                                    })}
+                                                    className={`flex-1 py-1.5 hover:bg-zinc-800 flex items-center justify-center transition-colors ${selectedClip.style?.textDecoration === 'underline' ? 'text-white bg-zinc-800' : 'text-zinc-500'}`}
+                                                >
+                                                    <Underline className="w-3.5 h-3.5" />
+                                                </button>
+                                                <div className="w-px bg-zinc-800" />
+                                                <button
+                                                    onClick={() => onUpdateClip(selectedClip.id, {
+                                                        style: { ...selectedClip.style, textTransform: selectedClip.style?.textTransform === 'uppercase' ? 'none' : 'uppercase' }
+                                                    })}
+                                                    className={`flex-1 py-1.5 hover:bg-zinc-800 flex items-center justify-center transition-colors ${selectedClip.style?.textTransform === 'uppercase' ? 'text-white bg-zinc-800' : 'text-zinc-500'}`}
+                                                >
+                                                    <span className="text-[10px] font-bold">TT</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Presets Grid */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                                            <span>Presets</span>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {SUBTITLE_PRESETS.map(preset => (
+                                                <button
+                                                    key={preset.id}
+                                                    onClick={() => onUpdateClip(selectedClip.id, {
+                                                        style: {
+                                                            ...selectedClip.style,
+                                                            ...preset.style
+                                                        }
+                                                    })}
+                                                    className="aspect-square rounded border border-zinc-800 hover:border-zinc-600 transition-all flex items-center justify-center overflow-hidden relative group"
+                                                    style={{ background: preset.previewBg }}
+                                                    title={preset.name}
+                                                >
+                                                    <span
+                                                        className="text-lg font-bold select-none"
+                                                        style={{
+                                                            fontFamily: preset.style.fontFamily,
+                                                            color: preset.style.color,
+                                                            WebkitTextStroke: preset.style.strokeWidth ? `${preset.style.strokeWidth}px ${preset.style.stroke}` : 'none',
+                                                            textShadow: preset.style.shadow,
+                                                            fontWeight: preset.style.fontWeight as any,
+                                                        }}
+                                                    >
+                                                        Aa
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Size Slider */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                                            <span>Size</span>
                                             <span className="text-white">{selectedClip.style?.fontSize || 24}px</span>
                                         </div>
                                         <input
                                             type="range"
                                             min="12"
-                                            max="72"
+                                            max="120"
                                             value={selectedClip.style?.fontSize || 24}
                                             onChange={(e) => onUpdateClip(selectedClip.id, {
                                                 style: { ...selectedClip.style, fontSize: parseInt(e.target.value) }
@@ -205,7 +305,7 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                     {/* Color */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                                            <span>Renk</span>
+                                            <span>Color</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <input
@@ -227,38 +327,50 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Apply to All Button */}
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => onApplyToAll && onApplyToAll(selectedClip.id, selectedClip.style)}
+                                        className="w-full py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-medium rounded border border-zinc-700 transition-colors"
+                                    >
+                                        Apply to All Subtitles
+                                    </button>
+                                </div>
                             </div>
                         )}
 
-                        {/* Volume Section (For both Audio and Video) */}
-                        <div className="space-y-4 pt-4 border-t border-zinc-800">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
-                                    <Volume2 className="w-3.5 h-3.5" /> Ses
-                                </h3>
-                            </div>
+                        {/* Volume Section (For both Audio and Video, NOT Text) */}
+                        {!isText && (
+                            <div className="space-y-4 pt-4 border-t border-zinc-800">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xs font-bold text-zinc-300 flex items-center gap-2">
+                                        <Volume2 className="w-3.5 h-3.5" /> Audio
+                                    </h3>
+                                </div>
 
-                            <div className="space-y-2 pl-2 border-l border-zinc-800 ml-1">
-                                <div className="flex justify-between items-center text-[10px] text-zinc-500">
-                                    <span>Ses Düzeyi (dB)</span>
-                                    <span className="font-mono text-white">{dbValue} dB</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="-60"
-                                    max="10" // Allow up to +10dB
-                                    step="1"
-                                    value={dbValue}
-                                    onChange={(e) => handleDbChange(parseInt(e.target.value))}
-                                    className="w-full accent-indigo-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <div className="flex justify-between text-[9px] text-zinc-600 font-medium px-0.5">
-                                    <span>-60dB</span>
-                                    <span>0dB</span>
-                                    <span>+10dB</span>
+                                <div className="space-y-2 pl-2 border-l border-zinc-800 ml-1">
+                                    <div className="flex justify-between items-center text-[10px] text-zinc-500">
+                                        <span>Ses Düzeyi (dB)</span>
+                                        <span className="font-mono text-white">{dbValue} dB</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="-60"
+                                        max="10" // Allow up to +10dB
+                                        step="1"
+                                        value={dbValue}
+                                        onChange={(e) => handleDbChange(parseInt(e.target.value))}
+                                        className="w-full accent-indigo-500 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                    <div className="flex justify-between text-[9px] text-zinc-600 font-medium px-0.5">
+                                        <span>-60dB</span>
+                                        <span>0dB</span>
+                                        <span>+10dB</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                     </div>
                 )}
@@ -270,6 +382,6 @@ export function PropertiesPanel({ selectedClip, onUpdateClip }: PropertiesPanelP
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

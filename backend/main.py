@@ -5,7 +5,8 @@ from pydantic import BaseModel
 # Modal Image Definition
 image = modal.Image.debian_slim() \
     .apt_install("ffmpeg", "imagemagick") \
-    .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy")
+    .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy==1.0.3") \
+    .run_commands("sed -i 's/rights=\"none\" pattern=\"@\\*\"/rights=\"read|write\" pattern=\"@*\"/' /etc/ImageMagick-6/policy.xml")
 
 # Lightweight Image for Web Endpoints (Fast Cold Start)
 light_image = modal.Image.debian_slim().pip_install("fastapi", "pydantic")
@@ -22,17 +23,220 @@ class VideoRequest(BaseModel):
     r2_bucket_name: str
 
 class RenderRequest(BaseModel):
-    video_tracks: list  # List of dicts: {url, start, duration, offset, track_index}
-    audio_tracks: list  # List of dicts
-    script: list        # For subtitles (optional for now)
+    video_tracks: list
+    audio_tracks: list
+    text_tracks: list = [] # Added to fix 422
+    script: list = []
     output_key: str
     r2_account_id: str
     r2_access_key_id: str
     r2_secret_access_key: str
     r2_bucket_name: str
+    width: int = 1080
+    height: int = 1920
+
+
+
+
+class SubtitleRequest(BaseModel):
+    video_tracks: list
+    audio_tracks: list
+    api_key: str
+    r2_account_id: str
+    r2_access_key_id: str
+    r2_secret_access_key: str
+    r2_bucket_name: str
+
+@app.function(image=image, timeout=600)
+def generate_subtitles_logic(request_data: dict):
+    # Imports
+    try:
+        from moviepy.editor import AudioFileClip, CompositeAudioClip
+    except ImportError:
+        from moviepy.audio.io.AudioFileClip import AudioFileClip
+        from moviepy.audio.compositing.CompositeAudioClip import CompositeAudioClip
+
+    import os
+    import requests
+    import json
+    import google.generativeai as genai
+    import time
+    
+    video_tracks = request_data.get('video_tracks', [])
+    audio_tracks = request_data.get('audio_tracks', [])
+    api_key = request_data.get('api_key')
+    
+    print("Starting Subtitle Generation...")
+    
+    local_assets_dir = "/tmp/assets_subs"
+    os.makedirs(local_assets_dir, exist_ok=True)
+
+    # REUSED DOWNLOAD HELPER
+    def download_asset(url, prefix):
+        ext = ".mp4"
+        if "." in url.split("/")[-1]:
+             possible_ext = "." + url.split("/")[-1].split(".")[-1].split("?")[0]
+             if len(possible_ext) < 5: ext = possible_ext
+        filename = f"{prefix}{ext}"
+        path = os.path.join(local_assets_dir, filename)
+        if os.path.exists(path): return path
+        try:
+            r = requests.get(url, stream=True, timeout=30)
+            r.raise_for_status()
+            with open(path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return path
+        except Exception as e:
+            print(f"DL Failed: {e}")
+            return None
+
+    audio_clips = []
+    debug_logs = []
+    
+    # 1. Extract Audio from Video Tracks
+    for idx, track in enumerate(video_tracks):
+        url = track.get('url') or track.get('src')
+        if not url: continue
+        path = download_asset(url, f"vid_{idx}")
+        if not path: continue
+
+        # Skip images (Extension check)
+        if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif')):
+            print(f"Skipping image {path} for content analysis")
+            continue
+        
+        try:
+            # Safer way to get audio from video using MoviePy 1.0.3
+            from moviepy.editor import VideoFileClip
+            video_clip = VideoFileClip(path)
+            if video_clip.audio is None:
+                print(f"Warning: Video {idx} has no audio stream.")
+                video_clip.close()
+                continue
+                
+            clip = video_clip.audio
+            
+            start = track.get('start', 0)
+            duration = track.get('duration', 0)
+            offset = track.get('offset', 0)
+            
+            # Apply offset
+            if offset > 0:
+                clip = clip.subclip(offset, clip.duration)
+            
+            # Apply duration
+            if duration > 0:
+                 # Ensure we don't exceed clip duration taking offset into account
+                 # In MoviePy 1.x subclip is absolute time in the source.
+                 # If we already subclipped offset, clip is now shorter.
+                 # Actually, subclip(start, end).
+                 # Let's use simple logic:
+                 # If we sliced offset, new clip starts at 0 relative.
+                 if duration < clip.duration:
+                    clip = clip.subclip(0, duration)
+                
+            clip = clip.set_start(start) # MoviePy 1.0.3 uses set_start, not with_start
+            
+            vol = track.get('volume', 1.0)
+            clip = clip.volumex(vol)
+            
+            audio_clips.append(clip)
+            
+            # Don't close video_clip immediately if audio_clip depends on it? 
+            # In 1.0.3, audio might reference the file. 
+            # We keep it open implicitly or risk closing the fd.
+            # safe to close video reader but keep audio? 
+            # actually moviepy manages this.
+        except Exception as e:
+            debug_logs.append(f"Error extracting audio from video {idx}: {str(e)}")
+            print(f"Error extracting audio from video {idx}: {e}")
+
+    # 2. Extract Audio Tracks
+    for idx, track in enumerate(audio_tracks):
+        url = track.get('url')
+        if not url: continue
+        path = download_asset(url, f"aud_{idx}")
+        if not path: continue
+        
+        try:
+            clip = AudioFileClip(path)
+            start = track.get('start', 0)
+            duration = track.get('duration', 0)
+            offset = track.get('offset', 0)
+
+            if offset > 0: clip = clip.subclip(offset, clip.duration)
+            if duration > 0 and duration < clip.duration: clip = clip.subclip(0, duration)
+            
+            clip = clip.set_start(start)
+            clip = clip.volumex(track.get('volume', 1.0))
+            audio_clips.append(clip)
+        except Exception as e:
+             print(f"Error loading audio {idx}: {e}")
+
+    if not audio_clips:
+        return {"status": "error", "message": "No audio found", "debug_logs": debug_logs}
+
+    # 3. Mix
+    print(f"Mixing {len(audio_clips)} audio clips...")
+    final_audio = CompositeAudioClip(audio_clips)
+    output_audio_path = "/tmp/mixed_audio.mp3"
+    final_audio.write_audiofile(output_audio_path, fps=24000, logger=None)
+    
+    # 4. Gemini Transcription
+    print("Uploading to Gemini...")
+    genai.configure(api_key=api_key)
+    
+    audio_file = genai.upload_file(path=output_audio_path)
+    while audio_file.state.name == "PROCESSING":
+        time.sleep(1)
+        audio_file = genai.get_file(audio_file.name)
+        
+    print("Generating Transcript with Gemini 2.5 Pro...")
+    model = genai.GenerativeModel("gemini-2.5-pro") # User specific model request
+    
+    prompt = """
+    Listen to this audio and generate precise subtitles.
+    Return a JSON array of objects.
+    Each object must have:
+    - "start": start time in seconds (float)
+    - "duration": duration in seconds (float)
+    - "text": the spoken text
+    
+    Example:
+    [
+      {"start": 0.5, "duration": 2.0, "text": "Hello world"},
+      {"start": 2.5, "duration": 1.5, "text": "Welcome back"}
+    ]
+    
+    IMPORTANT: 
+    - Adjust timing to match the audio exactly.
+    - If there is silence, do not generate text.
+    - Keep segments short (max 5-6 words) for video captions.
+    """
+    
+    response = model.generate_content([audio_file, prompt])
+    
+    try:
+        text = response.text.replace("```json", "").replace("```", "").strip()
+        data = json.loads(text)
+        return {"status": "success", "subtitles": data}
+    except Exception as e:
+        print(f"Gemini Parse Error: {e}")
+        return {"status": "error", "message": str(e), "raw": response.text}
 
 @app.function(image=image, timeout=3600)  # CPU is faster for cold starts on simple edits
+
 def render_video_logic(request_data: dict, r2_creds: dict):
+    # Monkeypatch PIL.Image.ANTIALIAS for MoviePy 1.0.3 compatibility with Pillow 10+
+    import PIL.Image
+    if not hasattr(PIL.Image, 'ANTIALIAS'):
+        PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+
+    # Configure ImageMagick for TextClip
+    from moviepy.config import change_settings
+    change_settings({"IMAGEMAGICK_BINARY": "/usr/bin/convert"})
+
     # COMPATIBILITY IMPORTS (v1 vs v2)
     try:
         # Try v1.x standard first (Most reliable if successful)
@@ -64,6 +268,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
     
     video_tracks = request_data.get('video_tracks', [])
     audio_tracks = request_data.get('audio_tracks', [])
+    text_tracks = request_data.get('text_tracks', []) # Extract Subtitles
     script = request_data.get('script', [])
     output_key = request_data.get('output_key')
     
@@ -71,6 +276,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
     print("BACKEND VERSION: 2.1.0 - MoviePy v2 Fixes")
     print(f"Video Tracks: {len(video_tracks)}")
     print(f"Audio Tracks: {len(audio_tracks)}")
+    print(f"Text Tracks: {len(text_tracks)}")
 
     # Setup R2
     s3_client = boto3.client(
@@ -115,7 +321,23 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             print(f"Failed to download {url}: {e}")
             return None
 
+    # Status Helper
+    def update_status(msg, percent=0):
+        try:
+            status_key = f"{output_key}_status.json"
+            status_data = {"status": "processing", "message": msg, "percent": percent, "timestamp": time.time()}
+            s3_client.put_object(
+                Bucket=r2_creds['bucket_name'],
+                Key=status_key,
+                Body=json.dumps(status_data),
+                ContentType='application/json'
+            )
+            print(f"STATUS UPDATE: {msg}")
+        except Exception as e:
+            print(f"Failed to update status: {e}")
+
     try:
+        update_status("Starting render job...", 5)
         clips_to_composite = []
         audio_clips = []
         
@@ -124,6 +346,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
 
         max_duration = 0
         
+        update_status("Downloading and processing clips...", 10)
         for idx, track_data in enumerate(video_tracks):
             url = track_data.get('url') or track_data.get('src')
             if not url: continue
@@ -143,7 +366,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                     clip = ImageClip(local_path)
                     # Images need explicit duration
                     if duration <= 0: duration = 5 # Default 5s for images if not specified
-                    clip = clip.with_duration(duration)
+                    clip = clip.set_duration(duration)
                 else:
                     print(f"Loading Video: {local_path}")
                     clip = VideoFileClip(local_path)
@@ -159,21 +382,29 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             
             if duration > 0 and not isinstance(clip, (ImageClip if 'ImageClip' in locals() else type(None))):
                  if duration < clip.duration:
-                     clip = clip.subclipped(0, duration)
+                     clip = clip.subclip(0, duration)
             
-            clip = clip.with_start(start_time)
+            clip = clip.set_start(start_time)
             # Resize Logic for 9:16
-            clip = clip.resized(height=1920) 
+            clip = clip.resize(height=1920) 
             if clip.w < 1080:
-                clip = clip.resized(width=1080)
-            clip = clip.cropped(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
+                clip = clip.resize(width=1080)
+            clip = clip.crop(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
             
+            # Apply Volume
+            vol = track_data.get('volume', 1.0)
+            if clip.audio is not None and vol != 1.0:
+                clip = clip.volumex(vol)
+
             clips_to_composite.append(clip)
             
             if start_time + duration > max_duration:
                 max_duration = start_time + duration
 
         # 2. Process Audio Tracks
+        if audio_tracks:
+            update_status(f"Processing {len(audio_tracks)} audio tracks...", 40)
+            
         for idx, track_data in enumerate(audio_tracks):
             url = track_data.get('url') or track_data.get('src')
             if not url: continue
@@ -188,8 +419,14 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             try:
                 clip = AudioFileClip(local_path)
                 if duration > 0 and duration < clip.duration:
-                    clip = clip.subclipped(0, duration)
-                clip = clip.with_start(start_time)
+                    clip = clip.subclip(0, duration)
+                clip = clip.set_start(start_time)
+                
+                # Apply Volume
+                vol = track_data.get('volume', 1.0)
+                if vol != 1.0:
+                    clip = clip.volumex(vol)
+                    
                 audio_clips.append(clip)
                 
                 if start_time + duration > max_duration:
@@ -198,7 +435,43 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 print(f"Failed to load audio {local_path}: {e}")
                 continue
 
-        # 3. Process Subtitles
+        # 3. Process Text Tracks (Subtitles)
+        for track in text_tracks:
+            try:
+                text = track.get('text')
+                if not text: continue
+                
+                start = track.get('start', 0)
+                duration = track.get('duration', 2)
+                style = track.get('style', {})
+                
+                # Extract Style
+                font_size = style.get('font_size', 50)
+                color = style.get('color', 'white')
+                font = 'Arial' # Default
+                stroke_color = style.get('stroke', 'black')
+                stroke_width = style.get('stroke_width', 0)
+                bg_color = style.get('background_color', 'transparent')
+                
+                # Create Text Clip
+                txt_clip = TextClip(
+                    text, 
+                    fontsize=font_size, 
+                    color=color, 
+                    font=font,
+                    stroke_color=stroke_color if stroke_width > 0 else None,
+                    stroke_width=stroke_width if stroke_width > 0 else 0,
+                    method='caption', 
+                    size=(800, None)
+                )
+                
+                txt_clip = txt_clip.set_start(start).set_duration(duration)
+                txt_clip = txt_clip.set_position(('center', 1500)) # Fixed position for now
+                
+                clips_to_composite.append(txt_clip)
+            except Exception as e:
+                print(f"Failed to render text track: {e}")
+
         if script:
              pass 
 
@@ -210,6 +483,8 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             clips_to_composite.append(bg_clip)
 
         # COMPOSITE
+        time.sleep(0.5) # Allow status to propagate
+        update_status("Compositing video layers...", 60)
         print(f"Compositing {len(clips_to_composite)} video clips...")
         bg_clip = ColorClip(size=(1080, 1920), color=(0,0,0), duration=max_duration)
         final_video = CompositeVideoClip([bg_clip] + clips_to_composite)
@@ -221,9 +496,10 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             all_audio = [a for a in all_audio if a is not None]
             if all_audio:
                 final_audio = CompositeAudioClip(all_audio)
-                final_video = final_video.with_audio(final_audio)
+                final_video = final_video.set_audio(final_audio)
 
         output_path = "/tmp/render_output.mp4"
+        update_status("Encoding final video (this may take a while)...", 75)
         final_video.write_videofile(
             output_path, 
             fps=30, 
@@ -246,6 +522,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
         
         # Upload
         print("Uploading rendered video...")
+        update_status("Uploading final video...", 90)
         s3_client.upload_file(
             output_path, 
             r2_creds['bucket_name'], 
@@ -258,6 +535,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
         # url = f"https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/{output_key}"
             
         print("Render Success!")
+        update_status("Finalizing...", 100)
         return {"status": "completed", "key": output_key}
 
     except Exception as e:
@@ -437,19 +715,27 @@ def render_video(item: RenderRequest):
     request_data = {
         "video_tracks": item.video_tracks,
         "audio_tracks": item.audio_tracks,
+        "text_tracks": item.text_tracks, # Fixed: Forward text_tracks
         "script": item.script,
         "output_key": item.output_key
     }
     
     call = render_video_logic.spawn(request_data, r2_creds)
     return {"status": "rendering_started", "call_id": call.object_id}
-    path = list(moviepy.__path__)
-    modules = []
-    for importer, modname, ispkg in pkgutil.walk_packages(path=path, prefix=moviepy.__name__+"."):
-        modules.append(modname)
-    
-    # Raise exception to ensure we see the output in the summary
-    raise RuntimeError(f"MoviePy Version: {getattr(moviepy, '__version__', 'unknown')}\nModules: {', '.join(modules)}")
+
+@app.function(image=light_image)
+@web_endpoint(method="POST")
+def generate_subtitles(item: SubtitleRequest):
+     request_data = {
+        "video_tracks": item.video_tracks,
+        "audio_tracks": item.audio_tracks,
+        "api_key": item.api_key
+    }
+     # Use .remote() to wait for result (synchronous HTTP)
+     # This assumes the operation completes within the HTTP timeout (usually 60-180s)
+     result = generate_subtitles_logic.remote(request_data)
+     return result
+
 
 # Local test
 @app.local_entrypoint()

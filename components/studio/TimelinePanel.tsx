@@ -936,493 +936,525 @@ export function TimelinePanel({
                 </div>
             </div>
 
-            {/* 2. Main Split View (Headers | Tracks) */}
-            <div className="flex-1 flex min-h-0 overflow-hidden relative">
+            {/* 2. Main Timeline Area */}
+            <div className="flex-1 flex flex-col min-h-0 relative">
 
-                {/* LEFT: Track Headers (Fixed Width) */}
-                <div ref={headerContainerRef} className="w-[120px] bg-[#1e1e1e] border-r border-[#333] flex flex-col shrink-0 z-20 mt-[24px] overflow-hidden" /* mt-6 matches timeline ruler height */>
-                    <div className="flex-1 overflow-hidden flex flex-col py-4 space-y-4"> {/* Padding matches timeline content padding */}
+                {/* Ruler Row (Fixed Top) */}
+                <div className="h-6 flex border-b border-[#333] bg-[#1e1e1e] shrink-0 z-40">
+                    {/* Ruler Scroll Area (Synced) */}
+                    {/* We used to have a 120px spacer here. Removed per user request to 'extend timeline up'. */}
+                    {/* However, we must ensure 0s tick aligns with track start. Tracks start AFTER the 120px header panel. */}
+                    {/* So the Ruler SCROLL view must be offset or padded by 120px visually? */}
+                    {/* Actually, the Track View (Right Side) occupies the space AFTER the 120px Header View (Left Side). */}
+                    {/* If we make the Ruler Row full width, the Ruler Scroll View effectively sits above BOTH Headers and Tracks. */}
+                    {/* But the Ticks should only start where tracks start. */}
+                    {/* So we need a 120px 'blank' area in the Ruler Row Left side. */}
+                    {/* The user said 'timeline ı aynı boyutta yukarı büyüt', meaning he wants the ruler to cover the gap. */}
+                    {/* I will keep the layout but maybe change the background or border? */}
+                    {/* Wait, 'sadece timeline yazan boş gri barı sil' -> 'Delete just the empty gray bar that says Timeline'. */}
+                    {/* That bar is likely the 120px header-top-spacer. */}
+                    {/* If he wants the Timeline Ruler to extend over it, I can just make the Ruler Container span full width, */}
+                    {/* AND have the ticks start at 120px? */}
+                    {/* Or maybe he WANTS the ticks to start at 0px relative to window? No, that desyncs time. */}
+                    {/* Let's try: Make 120px area PART of the Ruler div, so it looks unified, but keeps the offset. */}
 
-                        {/* Text Headers */}
-                        <div className="flex flex-col gap-1 pb-4 border-b border-[#333]">
-                            {textLayers.map(trackIdx => (
-                                <div key={`theader-${trackIdx}`} className="h-12 flex flex-col justify-center px-2">
-                                    <div className="flex items-center justify-between text-zinc-500 mb-1">
-                                        <span className="text-[10px] font-bold text-orange-400">T{trackIdx}</span>
-                                        <div className="flex items-center gap-2">
-                                            {/* Hide Toggle? Locked? */}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button className="text-zinc-600 hover:text-white" title="Lock Track">
-                                            {/* Lock Icon */}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Video Headers (Reverse Order: Top Layer First) */}
-                        <div className="flex flex-col gap-1">
-                            {videoLayers.map(trackIdx => (
-                                <div key={`vheader-${trackIdx}`} className="h-16 flex flex-col justify-center px-2 relative group">
-                                    <div className="flex items-center justify-between text-zinc-500 mb-1">
-                                        <span className="text-[10px] font-bold text-teal-500/80">V{trackIdx}</span>
-                                        {/* Status Indicators (Mini) */}
-                                        <div className="flex items-center gap-2">
-                                            {videoTrackState[trackIdx]?.hidden && <EyeOff className="w-2.5 h-2.5 text-zinc-400" />}
-                                        </div>
-                                    </div>
-                                    {/* Interaction Row */}
-                                    <div className="flex items-center justify-end gap-2">
-                                        {/* Hide Toggle */}
-                                        <button
-                                            onClick={() => onToggleTrackState && onToggleTrackState('video', trackIdx, 'hidden')}
-                                            className={`hover:text-white ${videoTrackState[trackIdx]?.hidden ? 'text-zinc-400' : 'text-zinc-600'}`}
-                                            title={videoTrackState[trackIdx]?.hidden ? "Show Track" : "Hide Track"}
-                                        >
-                                            {videoTrackState[trackIdx]?.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                        </button>
-
-                                        {/* Lock Toggle Removed */}
-
-                                        {/* Mute Toggle */}
-                                        <button
-                                            onClick={() => onToggleTrackState && onToggleTrackState('video', trackIdx, 'muted')}
-                                            className={`hover:text-white ${videoTrackState[trackIdx]?.muted ? 'text-red-400' : 'text-zinc-600'}`}
-                                            title={videoTrackState[trackIdx]?.muted ? "Unmute Track" : "Mute Track"}
-                                        >
-                                            {videoTrackState[trackIdx]?.muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Audio Headers */}
-                        <div className="flex flex-col gap-1 pt-4 border-t border-[#333]">
-                            {audioLayers.map(trackIdx => (
-                                <div key={`aheader-${trackIdx}`} className="h-12 flex flex-col justify-center px-2">
-                                    <div className="flex items-center justify-between text-zinc-500 mb-1">
-                                        <span className="text-[10px] font-bold text-indigo-400">A{trackIdx}</span>
-                                        {/* Status Indicators */}
-                                        <div className="flex gap-1 opacity-50">
-                                            {audioTrackState[trackIdx]?.muted && <VolumeX className="w-2.5 h-2.5 text-zinc-400" />}
-                                        </div>
-                                    </div>
-                                    {/* Interaction Row */}
-                                    <div className="flex items-center justify-end gap-2">
-                                        {/* Lock Toggle Removed */}
-
-                                        {/* Mute Toggle */}
-                                        <button
-                                            onClick={() => onToggleTrackState && onToggleTrackState('audio', trackIdx, 'muted')}
-                                            className={`hover:text-white ${audioTrackState[trackIdx]?.muted ? 'text-red-400' : 'text-zinc-600'}`}
-                                            title={audioTrackState[trackIdx]?.muted ? "Unmute Track" : "Mute Track"}
-                                        >
-                                            {audioTrackState[trackIdx]?.muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Script Header */}
-                        {script.length > 0 && (
-                            <div className="h-8 mt-4 flex items-center px-2 text-orange-400/50">
-                                <Type className="w-3 h-3 mr-2" />
-                                <span className="text-[9px] uppercase font-bold">Subs</span>
-                            </div>
-                        )}
+                    <div className="w-[120px] shrink-0 border-r border-[#333] bg-[#1e1e1e] flex items-end justify-center pb-1">
+                        <span className="text-[9px] text-zinc-600 font-mono">00:00</span>
                     </div>
-                </div>
 
-                {/* RIGHT: Timeline Scroll Area */}
-                <div
-                    ref={scrollContainerRef}
-                    className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#131313] custom-scrollbar flex flex-col"
-                    onScroll={(e) => {
-                        // Sync Vertical Scroll with Headers
-                        if (headerContainerRef.current) {
-                            headerContainerRef.current.scrollTop = e.currentTarget.scrollTop;
-                        }
-                    }}
-                >
                     <div
-                        className="h-full relative flex flex-col min-w-full"
-                        style={{ width: `${timelineWidth}px` }}
+                        className="flex-1 overflow-hidden relative"
+                        ref={(ref) => {
+                            if (ref) ref.id = 'timeline-ruler';
+                        }}
                     >
-                        {/* Time Ruler */}
                         <div
-                            className="h-6 border-b border-[#333] flex items-end text-[9px] text-zinc-500 font-mono select-none bg-[#1e1e1e] sticky top-0 z-10 w-full cursor-col-resize hover:bg-[#252525]"
+                            className="h-full relative cursor-col-resize hover:bg-[#252525]"
+                            style={{ width: `${timelineWidth}px` }}
                             onMouseDown={(e) => {
-                                // Start Scrubbing
-                                if (isPlaying) onTogglePlay(); // Pause if playing
-                                setIsScrubbing(true);
-
-                                // Initial Seek
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const clickX = e.clientX - rect.left + e.currentTarget.scrollLeft;
-                                // Note: currentTarget is the sticky header. We need global offset relative to scrollContainer.
-                                // Actually, simpler: e.nativeEvent.offsetX is relative to the target (Ruler div). 
-                                // Since Ruler div spans the FULL width (min-w-full), offsetX is correct map to time.
-                                const newTime = (e.nativeEvent.offsetX / PIXELS_PER_SECOND);
-                                onSeek(Math.min(Math.max(0, newTime), Math.max(duration, newTime)));
-                            }}
-                            onTouchStart={(e) => {
                                 if (isPlaying) onTogglePlay();
                                 setIsScrubbing(true);
-                                // Initial touch logic handled by move/click usually, 
-                                // but for instant reaction we can calculate here if needed.
-                                // Let's rely on the Move effect for continuous updates.
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const newTime = (e.clientX - rect.left) / PIXELS_PER_SECOND;
+                                onSeek(Math.min(Math.max(0, newTime), Math.max(duration, newTime)));
                             }}
                         >
                             {Array.from({ length: Math.ceil(visualDuration / 5) }).map((_, i) => (
-                                <div key={i} className="absolute bottom-0 flex items-end pb-1 border-l border-[#333]" style={{ left: `${i * 5 * PIXELS_PER_SECOND}px`, height: '50%' }}>
-                                    <span className="pl-1 text-zinc-600">{i * 5}s</span>
+                                <div key={i} className="absolute bottom-0 flex items-end pb-1 border-l border-[#333]"
+                                    style={{ left: `${i * 5 * PIXELS_PER_SECOND}px`, height: '50%' }}>
+                                    <span className="pl-1 text-[9px] text-zinc-500 font-mono select-none">{i * 5}s</span>
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
 
-                        {/* Tracks Content */}
-                        <div className="p-4 pt-4 space-y-4 flex-1">
+                {/* Split View (Headers | Tracks) */}
+                <div className="flex-1 flex min-h-0 overflow-hidden relative">
+                    {/* LEFT: Track Headers */}
+                    <div ref={headerContainerRef} className="w-[120px] bg-[#1e1e1e] border-r border-[#333] flex flex-col shrink-0 z-20 overflow-hidden">
+                        <div className="flex-1 overflow-hidden flex flex-col py-4 space-y-4">
 
-                            {/* Text Tracks */}
-                            <div className="flex flex-col gap-1 pb-4 border-b border-[#333]">
-                                {textLayers.map(trackIdx => (
-                                    <div
-                                        key={`ttrack-${trackIdx}`}
-                                        className="h-12 relative w-full transition-colors bg-[#1e1e1e]/30 border-b border-[#333]/30 hover:bg-[#333]/20"
-                                        onDragOver={(e) => handleDragOver(e, trackIdx)}
-                                        onDrop={(e) => handleDrop(e, trackIdx)}
-                                    >
-                                        {/* Ghost / Preview Clip */}
-                                        {dragPreview && dragPreview.type === 'text' && dragPreview.trackIndex === trackIdx && (
+                            {/* Text Headers */}
+                            {textTracks.length > 0 && (
+                                <div className="flex flex-col gap-1 pb-4 border-b border-[#333]">
+                                    {textLayers.map(trackIdx => (
+                                        <div key={`theader-${trackIdx}`} className="h-12 flex flex-col justify-center px-2">
+                                            <div className="flex items-center justify-between text-zinc-500 mb-1">
+                                                <span className="text-[10px] font-bold text-orange-400">T{trackIdx}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {/* Hide Toggle? Locked? */}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button className="text-zinc-600 hover:text-white" title="Lock Track">
+                                                    {/* Lock Icon */}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Video Headers (Reverse Order: Top Layer First) */}
+                            <div className="flex flex-col gap-1">
+                                {videoLayers.map(trackIdx => (
+                                    <div key={`vheader-${trackIdx}`} className="h-16 flex flex-col justify-center px-2 relative group">
+                                        <div className="flex items-center justify-between text-zinc-500 mb-1">
+                                            <span className="text-[10px] font-bold text-teal-500/80">V{trackIdx}</span>
+                                            {/* Status Indicators (Mini) */}
+                                            <div className="flex items-center gap-2">
+                                                {videoTrackState[trackIdx]?.hidden && <EyeOff className="w-2.5 h-2.5 text-zinc-400" />}
+                                            </div>
+                                        </div>
+                                        {/* Interaction Row */}
+                                        <div className="flex items-center justify-end gap-2">
+                                            {/* Hide Toggle */}
+                                            <button
+                                                onClick={() => onToggleTrackState && onToggleTrackState('video', trackIdx, 'hidden')}
+                                                className={`hover:text-white ${videoTrackState[trackIdx]?.hidden ? 'text-zinc-400' : 'text-zinc-600'}`}
+                                                title={videoTrackState[trackIdx]?.hidden ? "Show Track" : "Hide Track"}
+                                            >
+                                                {videoTrackState[trackIdx]?.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                            </button>
+
+                                            {/* Lock Toggle Removed */}
+
+                                            {/* Mute Toggle */}
+                                            <button
+                                                onClick={() => onToggleTrackState && onToggleTrackState('video', trackIdx, 'muted')}
+                                                className={`hover:text-white ${videoTrackState[trackIdx]?.muted ? 'text-red-400' : 'text-zinc-600'}`}
+                                                title={videoTrackState[trackIdx]?.muted ? "Unmute Track" : "Mute Track"}
+                                            >
+                                                {videoTrackState[trackIdx]?.muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Audio Headers */}
+                            <div className="flex flex-col gap-1 pt-4 border-t border-[#333]">
+                                {audioLayers.map(trackIdx => (
+                                    <div key={`aheader-${trackIdx}`} className="h-12 flex flex-col justify-center px-2">
+                                        <div className="flex items-center justify-between text-zinc-500 mb-1">
+                                            <span className="text-[10px] font-bold text-indigo-400">A{trackIdx}</span>
+                                            {/* Status Indicators */}
+                                            <div className="flex gap-1 opacity-50">
+                                                {audioTrackState[trackIdx]?.muted && <VolumeX className="w-2.5 h-2.5 text-zinc-400" />}
+                                            </div>
+                                        </div>
+                                        {/* Interaction Row */}
+                                        <div className="flex items-center justify-end gap-2">
+                                            {/* Lock Toggle Removed */}
+
+                                            {/* Mute Toggle */}
+                                            <button
+                                                onClick={() => onToggleTrackState && onToggleTrackState('audio', trackIdx, 'muted')}
+                                                className={`hover:text-white ${audioTrackState[trackIdx]?.muted ? 'text-red-400' : 'text-zinc-600'}`}
+                                                title={audioTrackState[trackIdx]?.muted ? "Unmute Track" : "Mute Track"}
+                                            >
+                                                {audioTrackState[trackIdx]?.muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Script Header */}
+                            {script.length > 0 && (
+                                <div className="h-8 mt-4 flex items-center px-2 text-orange-400/50">
+                                    <Type className="w-3 h-3 mr-2" />
+                                    <span className="text-[9px] uppercase font-bold">Subs</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* RIGHT: Timeline Scroll Area */}
+                    <div
+                        ref={scrollContainerRef}
+                        className="flex-1 overflow-x-auto overflow-y-auto relative bg-[#131313] custom-scrollbar flex flex-col"
+                        onScroll={(e) => {
+                            // Sync Vertical Scroll with Headers
+                            if (headerContainerRef.current) {
+                                headerContainerRef.current.scrollTop = e.currentTarget.scrollTop;
+                            }
+                            // Sync Horizontal Scroll with Ruler Top Bar
+                            const ruler = document.getElementById('timeline-ruler');
+                            if (ruler) {
+                                ruler.scrollLeft = e.currentTarget.scrollLeft;
+                            }
+                        }}
+                    >
+                        <div
+                            className="min-h-full relative flex flex-col min-w-full"
+                            style={{ width: `${timelineWidth}px` }}
+                        >
+                            {/* Old Ruler Removed */}
+
+                            {/* Tracks Content */}
+                            <div className="p-4 pt-4 space-y-4 flex-1">
+
+                                {/* Text Tracks */}
+                                {textTracks.length > 0 && (
+                                    <div className="flex flex-col gap-1 pb-4 border-b border-[#333]">
+                                        {textLayers.map(trackIdx => (
                                             <div
-                                                className="absolute top-0.5 bottom-0.5 rounded-sm bg-orange-500/30 border border-orange-400/50 z-20 pointer-events-none"
-                                                style={{
-                                                    left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
-                                                    width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
-                                                }}
-                                            />
-                                        )}
+                                                key={`ttrack-${trackIdx}`}
+                                                className="h-12 relative w-full transition-colors bg-[#1e1e1e]/30 border-b border-[#333]/30 hover:bg-[#333]/20"
+                                                onDragOver={(e) => handleDragOver(e, trackIdx)}
+                                                onDrop={(e) => handleDrop(e, trackIdx)}
+                                            >
+                                                {/* Ghost / Preview Clip */}
+                                                {dragPreview && dragPreview.type === 'text' && dragPreview.trackIndex === trackIdx && (
+                                                    <div
+                                                        className="absolute top-0.5 bottom-0.5 rounded-sm bg-orange-500/30 border border-orange-400/50 z-20 pointer-events-none"
+                                                        style={{
+                                                            left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
+                                                            width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
+                                                        }}
+                                                    />
+                                                )}
 
-                                        {(textTracks || []).filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => (
-                                            <div
-                                                key={clip.id}
-                                                onContextMenu={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    onSelectClip && onSelectClip(clip.id);
-                                                    setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'text' });
-                                                }}
-                                                onMouseDown={(e) => {
-                                                    if (activeTool === 'razor') return;
-                                                    handleMoveStart(e, clip.id, 'text', clip.start, trackIdx);
-                                                }}
-                                                onTouchStart={(e) => {
-                                                    if (activeTool === 'razor') return;
-                                                    handleMoveStart(e, clip.id, 'text', clip.start, trackIdx);
-                                                }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                }}
-                                                className={`absolute top-0.5 bottom-0.5 rounded-sm bg-[#5E2A1E] border border-[#7A3A2A] overflow-hidden z-10 select-none group touch-pan-y
+                                                {(textTracks || []).filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => (
+                                                    <div
+                                                        key={clip.id}
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            onSelectClip && onSelectClip(clip.id);
+                                                            setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'text' });
+                                                        }}
+                                                        onMouseDown={(e) => {
+                                                            if (activeTool === 'razor') return;
+                                                            handleMoveStart(e, clip.id, 'text', clip.start, trackIdx);
+                                                        }}
+                                                        onTouchStart={(e) => {
+                                                            if (activeTool === 'razor') return;
+                                                            handleMoveStart(e, clip.id, 'text', clip.start, trackIdx);
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                        }}
+                                                        className={`absolute top-0.5 bottom-0.5 rounded-sm bg-[#5E2A1E] border border-[#7A3A2A] overflow-hidden z-10 select-none group touch-pan-y
                                                 ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                 ${selectedClipId === clip.id ? 'ring-2 ring-orange-300 z-20' : ''}
                                                 ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
                                                 `}
-                                                style={{
-                                                    left: `${clip.start * PIXELS_PER_SECOND}px`,
-                                                    width: `${clip.duration * PIXELS_PER_SECOND}px`,
-                                                }}
-                                            >
-                                                {/* Resize Handles */}
-                                                <div
-                                                    className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
-                                                    onMouseDown={(e) => handleResizeStart(e, clip.id, 'text', 'start', clip.start, clip.duration, clip.duration)}
-                                                >
-                                                    <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
-                                                </div>
+                                                        style={{
+                                                            left: `${clip.start * PIXELS_PER_SECOND}px`,
+                                                            width: `${clip.duration * PIXELS_PER_SECOND}px`,
+                                                        }}
+                                                    >
+                                                        {/* Resize Handles */}
+                                                        <div
+                                                            className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+                                                            onMouseDown={(e) => handleResizeStart(e, clip.id, 'text', 'start', clip.start, clip.duration, clip.duration)}
+                                                        >
+                                                            <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                        </div>
 
-                                                <div className="relative px-2 h-full flex items-center pointer-events-none">
-                                                    <span className="text-[10px] text-orange-100 truncate">{clip.text || "Subtitle"}</span>
-                                                </div>
+                                                        <div className="relative px-2 h-full flex items-center pointer-events-none">
+                                                            <span className="text-[10px] text-orange-100 truncate">{clip.text || "Subtitle"}</span>
+                                                        </div>
 
-                                                <div
-                                                    className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
-                                                    onMouseDown={(e) => handleResizeStart(e, clip.id, 'text', 'end', clip.start, clip.duration, clip.duration)}
-                                                >
-                                                    <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
-                                                </div>
+                                                        <div
+                                                            className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+                                                            onMouseDown={(e) => handleResizeStart(e, clip.id, 'text', 'end', clip.start, clip.duration, clip.duration)}
+                                                        >
+                                                            <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         ))}
                                     </div>
-                                ))}
-                            </div>
+                                )}
 
-                            {/* Video Tracks (Reverse Order to Match Headers) */}
-                            <div className="flex flex-col gap-1">
-                                {videoLayers.map(trackIdx => (
-                                    <div
-                                        key={`vtrack-${trackIdx}`}
-                                        className={`h-16 relative w-full transition-colors border-b border-[#333]/30 ${videoTracks.some(t => (t.trackIndex || 0) == trackIdx) ? 'bg-[#1e1e1e]/50' : 'bg-transparent hover:bg-[#333]/10'
-                                            }`}
-                                        onDragOver={(e) => handleDragOver(e, trackIdx)}
-                                        onDrop={(e) => handleDrop(e, trackIdx)}
-                                    >
-                                        {/* Ghost / Preview Clip */}
-                                        {dragPreview && dragPreview.type === 'video' && dragPreview.trackIndex === trackIdx && (
-                                            <div
-                                                className="absolute top-0.5 bottom-0.5 rounded-sm bg-teal-500/30 border border-teal-400/50 z-20 pointer-events-none"
-                                                style={{
-                                                    left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
-                                                    width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
-                                                }}
-                                            >
-                                                <div className="text-[9px] text-teal-200/50 px-2 truncate">
-                                                    {new Date(dragPreview.start * 1000).toISOString().substr(14, 5)}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {videoTracks.filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => {
-                                            return (
+                                {/* Video Tracks (Reverse Order to Match Headers) */}
+                                <div className="flex flex-col gap-1">
+                                    {videoLayers.map(trackIdx => (
+                                        <div
+                                            key={`vtrack-${trackIdx}`}
+                                            className={`h-16 relative w-full transition-colors border-b border-[#333]/30 ${videoTracks.some(t => (t.trackIndex || 0) == trackIdx) ? 'bg-[#1e1e1e]/50' : 'bg-transparent hover:bg-[#333]/10'
+                                                }`}
+                                            onDragOver={(e) => handleDragOver(e, trackIdx)}
+                                            onDrop={(e) => handleDrop(e, trackIdx)}
+                                        >
+                                            {/* Ghost / Preview Clip */}
+                                            {dragPreview && dragPreview.type === 'video' && dragPreview.trackIndex === trackIdx && (
                                                 <div
-                                                    key={clip.id}
-                                                    onContextMenu={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        onSelectClip && onSelectClip(clip.id);
-                                                        setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'video' });
+                                                    className="absolute top-0.5 bottom-0.5 rounded-sm bg-teal-500/30 border border-teal-400/50 z-20 pointer-events-none"
+                                                    style={{
+                                                        left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
+                                                        width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
                                                     }}
-                                                    onMouseDown={(e) => {
-                                                        if (activeTool === 'razor') return; // Don't drag in razor mode
-                                                        handleMoveStart(e, clip.id, 'video', clip.start, trackIdx);
-                                                    }}
-                                                    onTouchStart={(e) => {
-                                                        if (activeTool === 'razor') {
-                                                            // Touch Split immediately? Or wait for tap?
-                                                            // Usually tap. TouchStart might be drag.
-                                                            // Let's split on Click (Tap) for consistency.
-                                                            return;
-                                                        }
-                                                        handleMoveStart(e, clip.id, 'video', clip.start, trackIdx);
-                                                    }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (activeTool === 'razor') {
-                                                            // SPLIT ACTION
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-                                                            const clickX = e.clientX - rect.left; // x relative to clip start visually?
-                                                            // No, clientX is screen. rect.left is clip start screen x.
-                                                            // So clickX is pixel offset into clip.
-                                                            const splitTime = clip.start + (clickX / PIXELS_PER_SECOND);
-                                                            handleSplit(clip.id, 'video', splitTime);
-                                                        } else {
-                                                            // Select
-                                                            // Don't need to do anything as onMouseDown usually handles select/drag start
-                                                            // But explicit select is good.
-                                                        }
-                                                    }}
-                                                    // CAPCUT STYLE: Teal/Cyber colors
-                                                    className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden clip-item z-10 select-none group touch-pan-y
+                                                >
+                                                    <div className="text-[9px] text-teal-200/50 px-2 truncate">
+                                                        {new Date(dragPreview.start * 1000).toISOString().substr(14, 5)}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {videoTracks.filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => {
+                                                return (
+                                                    <div
+                                                        key={clip.id}
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            onSelectClip && onSelectClip(clip.id);
+                                                            setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'video' });
+                                                        }}
+                                                        onMouseDown={(e) => {
+                                                            if (activeTool === 'razor') return; // Don't drag in razor mode
+                                                            handleMoveStart(e, clip.id, 'video', clip.start, trackIdx);
+                                                        }}
+                                                        onTouchStart={(e) => {
+                                                            if (activeTool === 'razor') {
+                                                                // Touch Split immediately? Or wait for tap?
+                                                                // Usually tap. TouchStart might be drag.
+                                                                // Let's split on Click (Tap) for consistency.
+                                                                return;
+                                                            }
+                                                            handleMoveStart(e, clip.id, 'video', clip.start, trackIdx);
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (activeTool === 'razor') {
+                                                                // SPLIT ACTION
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                const clickX = e.clientX - rect.left; // x relative to clip start visually?
+                                                                // No, clientX is screen. rect.left is clip start screen x.
+                                                                // So clickX is pixel offset into clip.
+                                                                const splitTime = clip.start + (clickX / PIXELS_PER_SECOND);
+                                                                handleSplit(clip.id, 'video', splitTime);
+                                                            } else {
+                                                                // Select
+                                                                // Don't need to do anything as onMouseDown usually handles select/drag start
+                                                                // But explicit select is good.
+                                                            }
+                                                        }}
+                                                        // CAPCUT STYLE: Teal/Cyber colors
+                                                        className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden clip-item z-10 select-none group touch-pan-y
                                                     ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-white z-20' : ''}
                                                     ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'} 
                                                     `}
-                                                    // Setting opacity-0 on dragged item effectively "hides" the original while relying on Preview + Browser Drag Image
-                                                    // Or we can keep it 0.5. User didn't like "hiding" maybe? 
-                                                    // Actually user showed an image of the browser drag image being blurry. 
-                                                    // If I set opacity-0, the browser drag image is derived from a transparent element -> invisible!
-                                                    // So I must NOT set opacity-0 if I want standard DnD, OR I must rely ONLY on my Preview.
-                                                    // Let's try: Hide Original (opacity-0 or display-none) -> Browser Ghost is Invisible -> User sees ONLY my Custom Preview.
-                                                    // BUT browsers take the snapshot on dragStart. If I change state on dragStart to hide it, sometimes it captures the hidden state.
-                                                    // Trick: Change opacity AFTER timeout.
+                                                        // Setting opacity-0 on dragged item effectively "hides" the original while relying on Preview + Browser Drag Image
+                                                        // Or we can keep it 0.5. User didn't like "hiding" maybe? 
+                                                        // Actually user showed an image of the browser drag image being blurry. 
+                                                        // If I set opacity-0, the browser drag image is derived from a transparent element -> invisible!
+                                                        // So I must NOT set opacity-0 if I want standard DnD, OR I must rely ONLY on my Preview.
+                                                        // Let's try: Hide Original (opacity-0 or display-none) -> Browser Ghost is Invisible -> User sees ONLY my Custom Preview.
+                                                        // BUT browsers take the snapshot on dragStart. If I change state on dragStart to hide it, sometimes it captures the hidden state.
+                                                        // Trick: Change opacity AFTER timeout.
 
+                                                        style={{
+                                                            left: `${clip.start * PIXELS_PER_SECOND}px`,
+                                                            width: `${clip.duration * PIXELS_PER_SECOND}px`,
+                                                            backgroundColor: '#1E5E5E', // Teal Background
+                                                            border: '1px solid #2A7A7A'
+                                                        }}
+                                                    >
+                                                        {/* Left Handle - Touch Friendly & Visible */}
+                                                        <div
+                                                            className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
+                                                            onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                            onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        >
+                                                            {/* Visible Bar */}
+                                                            <div className="w-2 h-8 bg-white rounded shadow-lg border border-black/20" />
+                                                        </div>
+
+                                                        {/* Thumbnails Strip (Mock) */}
+                                                        <div className="absolute inset-0 opacity-20 flex overflow-hidden pointer-events-none">
+                                                            {Array.from({ length: Math.ceil(clip.duration / 5) }).map((_, i) => (
+                                                                <div key={i} className="flex-1 border-r border-black/20 bg-emerald-900/50" />
+                                                            ))}
+                                                        </div>
+                                                        <div className="relative px-2 h-full flex items-center pointer-events-none">
+                                                            <span className="text-[10px] font-medium text-teal-100 truncate drop-shadow-md">{clip.id}</span>
+                                                        </div>
+
+                                                        {/* Right Handle - Touch Friendly & Visible */}
+                                                        <div
+                                                            className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
+                                                            onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                            onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                        >
+                                                            {/* Visible Bar */}
+                                                            <div className="w-2 h-8 bg-white rounded shadow-lg border border-black/20" />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Audio Tracks */}
+                                <div className="flex flex-col gap-1 pt-4 border-t border-[#333]">
+                                    {audioLayers.map(trackIdx => (
+                                        <div
+                                            key={`atrack-${trackIdx}`}
+                                            className="h-12 relative w-full transition-colors bg-[#1e1e1e]/30 border-b border-[#333]/30 hover:bg-[#333]/20"
+                                            onDragOver={(e) => handleDragOver(e, trackIdx)}
+                                            onDrop={(e) => handleDrop(e, trackIdx)}
+                                        >
+                                            {/* Ghost / Preview Clip */}
+                                            {dragPreview && dragPreview.type === 'audio' && dragPreview.trackIndex === trackIdx && (
+                                                <div
+                                                    className="absolute top-0.5 bottom-0.5 rounded-sm bg-indigo-500/30 border border-indigo-400/50 z-20 pointer-events-none"
                                                     style={{
-                                                        left: `${clip.start * PIXELS_PER_SECOND}px`,
-                                                        width: `${clip.duration * PIXELS_PER_SECOND}px`,
-                                                        backgroundColor: '#1E5E5E', // Teal Background
-                                                        border: '1px solid #2A7A7A'
+                                                        left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
+                                                        width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
                                                     }}
                                                 >
-                                                    {/* Left Handle - Touch Friendly & Visible */}
-                                                    <div
-                                                        className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
-                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                    >
-                                                        {/* Visible Bar */}
-                                                        <div className="w-2 h-8 bg-white rounded shadow-lg border border-black/20" />
-                                                    </div>
-
-                                                    {/* Thumbnails Strip (Mock) */}
-                                                    <div className="absolute inset-0 opacity-20 flex overflow-hidden pointer-events-none">
-                                                        {Array.from({ length: Math.ceil(clip.duration / 5) }).map((_, i) => (
-                                                            <div key={i} className="flex-1 border-r border-black/20 bg-emerald-900/50" />
-                                                        ))}
-                                                    </div>
-                                                    <div className="relative px-2 h-full flex items-center pointer-events-none">
-                                                        <span className="text-[10px] font-medium text-teal-100 truncate drop-shadow-md">{clip.id}</span>
-                                                    </div>
-
-                                                    {/* Right Handle - Touch Friendly & Visible */}
-                                                    <div
-                                                        className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
-                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                        onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                    >
-                                                        {/* Visible Bar */}
-                                                        <div className="w-2 h-8 bg-white rounded shadow-lg border border-black/20" />
+                                                    <div className="text-[9px] text-indigo-200/50 px-2 pt-1 truncate">
+                                                        {new Date(dragPreview.start * 1000).toISOString().substr(14, 5)}
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                ))}
-                            </div>
+                                            )}
 
-                            {/* Audio Tracks */}
-                            <div className="flex flex-col gap-1 pt-4 border-t border-[#333]">
-                                {audioLayers.map(trackIdx => (
-                                    <div
-                                        key={`atrack-${trackIdx}`}
-                                        className="h-12 relative w-full transition-colors bg-[#1e1e1e]/30 border-b border-[#333]/30 hover:bg-[#333]/20"
-                                        onDragOver={(e) => handleDragOver(e, trackIdx)}
-                                        onDrop={(e) => handleDrop(e, trackIdx)}
-                                    >
-                                        {/* Ghost / Preview Clip */}
-                                        {dragPreview && dragPreview.type === 'audio' && dragPreview.trackIndex === trackIdx && (
-                                            <div
-                                                className="absolute top-0.5 bottom-0.5 rounded-sm bg-indigo-500/30 border border-indigo-400/50 z-20 pointer-events-none"
-                                                style={{
-                                                    left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
-                                                    width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
-                                                }}
-                                            >
-                                                <div className="text-[9px] text-indigo-200/50 px-2 pt-1 truncate">
-                                                    {new Date(dragPreview.start * 1000).toISOString().substr(14, 5)}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {audioTracks.filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => {
-                                            return (
-                                                <div
-                                                    key={clip.id}
-                                                    onContextMenu={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        onSelectClip && onSelectClip(clip.id);
-                                                        setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'audio' });
-                                                    }}
-                                                    onMouseDown={(e) => {
-                                                        if (activeTool === 'razor') return;
-                                                        handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx);
-                                                    }}
-                                                    onTouchStart={(e) => {
-                                                        if (activeTool === 'razor') return;
-                                                        handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx);
-                                                    }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (activeTool === 'razor') {
-                                                            const rect = e.currentTarget.getBoundingClientRect();
-                                                            const clickX = e.clientX - rect.left;
-                                                            const splitTime = clip.start + (clickX / PIXELS_PER_SECOND);
-                                                            handleSplit(clip.id, 'audio', splitTime);
-                                                        }
-                                                    }}
-                                                    className={`absolute top-px bottom-px rounded-sm bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group touch-pan-y
+                                            {audioTracks.filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => {
+                                                return (
+                                                    <div
+                                                        key={clip.id}
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            onSelectClip && onSelectClip(clip.id);
+                                                            setContextMenu({ x: e.clientX, y: e.clientY, clipId: clip.id, type: 'audio' });
+                                                        }}
+                                                        onMouseDown={(e) => {
+                                                            if (activeTool === 'razor') return;
+                                                            handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx);
+                                                        }}
+                                                        onTouchStart={(e) => {
+                                                            if (activeTool === 'razor') return;
+                                                            handleMoveStart(e, clip.id, 'audio', clip.start, trackIdx);
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (activeTool === 'razor') {
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                const clickX = e.clientX - rect.left;
+                                                                const splitTime = clip.start + (clickX / PIXELS_PER_SECOND);
+                                                                handleSplit(clip.id, 'audio', splitTime);
+                                                            }
+                                                        }}
+                                                        className={`absolute top-px bottom-px rounded-sm bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group touch-pan-y
                                                     ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
                                                         ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
                                                         `}
-                                                    style={{
-                                                        left: `${clip.start * PIXELS_PER_SECOND}px`,
-                                                        width: `${clip.duration * PIXELS_PER_SECOND}px`,
-                                                        border: '1px solid #5b6da0'
-                                                    }}
-                                                >
-                                                    {/* Left Handle - Touch Friendly */}
-                                                    <div
-                                                        className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
-                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                        onTouchStart={(e) => {
-                                                            e.preventDefault();
-                                                            handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration);
+                                                        style={{
+                                                            left: `${clip.start * PIXELS_PER_SECOND}px`,
+                                                            width: `${clip.duration * PIXELS_PER_SECOND}px`,
+                                                            border: '1px solid #5b6da0'
                                                         }}
                                                     >
-                                                        <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
-                                                    </div>
-
-                                                    {/* Waveform Mock - Static & Angular */}
-                                                    <div className="absolute inset-x-0 bottom-0 h-1/2 flex items-end opacity-30 px-1 pointer-events-none gap-0.5">
-                                                        {Array.from({ length: 20 }).map((_, i) => (
-                                                            <div key={i} className="flex-1 bg-indigo-200" style={{ height: `${30 + ((i % 3) * 20)}%` }} />
-                                                        ))}
-                                                    </div>
-                                                    <div className="relative px-2 h-full flex items-start pt-1 pointer-events-none">
-                                                        <span className="text-[9px] font-medium text-indigo-100 truncate shadow-black drop-shadow-md">Audio {trackIdx}</span>
-                                                    </div>
-
-                                                    {/* Right Handle - Touch Friendly */}
-                                                    <div
-                                                        className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
+                                                        {/* Left Handle - Touch Friendly */}
+                                                        <div
+                                                            className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
                                                         `}
-                                                        onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
-                                                        onTouchStart={(e) => {
-                                                            e.preventDefault(); // Stop bubbling immediately
-                                                            handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration);
-                                                        }}
-                                                    >
-                                                        <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                            onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                            onTouchStart={(e) => {
+                                                                e.preventDefault();
+                                                                handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration);
+                                                            }}
+                                                        >
+                                                            <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                        </div>
+
+                                                        {/* Waveform Mock - Static & Angular */}
+                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 flex items-end opacity-30 px-1 pointer-events-none gap-0.5">
+                                                            {Array.from({ length: 20 }).map((_, i) => (
+                                                                <div key={i} className="flex-1 bg-indigo-200" style={{ height: `${30 + ((i % 3) * 20)}%` }} />
+                                                            ))}
+                                                        </div>
+                                                        <div className="relative px-2 h-full flex items-start pt-1 pointer-events-none">
+                                                            <span className="text-[9px] font-medium text-indigo-100 truncate shadow-black drop-shadow-md">Audio {trackIdx}</span>
+                                                        </div>
+
+                                                        {/* Right Handle - Touch Friendly */}
+                                                        <div
+                                                            className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
+                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                        `}
+                                                            onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
+                                                            onTouchStart={(e) => {
+                                                                e.preventDefault(); // Stop bubbling immediately
+                                                                handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration);
+                                                            }}
+                                                        >
+                                                            <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ))}
-                            </div>
-
-
-
-                        </div>
-
-                        {/* Snap Line */}
-                        {snapLine !== null && (
-                            <div
-                                className="absolute top-0 bottom-0 w-px bg-yellow-400 z-40 pointer-events-none shadow-[0_0_10px_rgba(250,204,21,0.5)]"
-                                style={{ left: `${snapLine * PIXELS_PER_SECOND}px` }}
-                            />
-                        )}
-
-                        {/* Razor Guide Line */}
-                        {activeTool === 'razor' && razorLineX !== null && (
-                            <div
-                                className="absolute top-0 bottom-0 w-px bg-rose-500 z-50 pointer-events-none border-l border-dashed border-rose-200"
-                                style={{ left: `${razorLineX}px` }}
-                            >
-                                <div className="absolute top-8 -left-3 bg-rose-600/90 text-[9px] text-white px-1 py-0.5 rounded shadow-sm flex items-center justify-center">
-                                    <Scissors className="w-3 h-3" />
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
                                 </div>
-                            </div>
-                        )}
 
-                        {/* Playhead Line */}
-                        <div
-                            className="absolute top-0 bottom-0 w-px bg-white z-50 pointer-events-none"
-                            style={{ left: `${currentTime * PIXELS_PER_SECOND}px` }}
-                        >
-                            <div className="absolute -top-0 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white" />
+
+
+                            </div>
+
+                            {/* Snap Line */}
+                            {snapLine !== null && (
+                                <div
+                                    className="absolute top-0 bottom-0 w-px bg-yellow-400 z-40 pointer-events-none shadow-[0_0_10px_rgba(250,204,21,0.5)]"
+                                    style={{ left: `${snapLine * PIXELS_PER_SECOND}px` }}
+                                />
+                            )}
+
+                            {/* Razor Guide Line */}
+                            {activeTool === 'razor' && razorLineX !== null && (
+                                <div
+                                    className="absolute top-0 bottom-0 w-px bg-rose-500 z-50 pointer-events-none border-l border-dashed border-rose-200"
+                                    style={{ left: `${razorLineX}px` }}
+                                >
+                                    <div className="absolute top-8 -left-3 bg-rose-600/90 text-[9px] text-white px-1 py-0.5 rounded shadow-sm flex items-center justify-center">
+                                        <Scissors className="w-3 h-3" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Playhead Line */}
+                            <div
+                                className="absolute top-0 bottom-0 w-px bg-white z-50 pointer-events-none"
+                                style={{ left: `${currentTime * PIXELS_PER_SECOND}px` }}
+                            >
+                                <div className="absolute -top-0 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white" />
+                            </div>
                         </div>
                     </div>
                 </div>

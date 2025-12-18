@@ -53,7 +53,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
     // Selection & UI State
     const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle'>('Media');
+    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock'>('Media');
 
     // Track State (Muted/Hidden/Locked)
     const [videoTrackState, setVideoTrackState] = useState<Record<number, { muted: boolean, hidden: boolean, locked: boolean }>>({});
@@ -70,6 +70,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     // Export State
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportStatus, setExportStatus] = useState<ExportStatus>('idle');
+    const [detailedStatus, setDetailedStatus] = useState<string | null>(null);
     const [exportError, setExportError] = useState<string | null>(null);
     const [finalDownloadUrl, setFinalDownloadUrl] = useState<string | null>(null);
 
@@ -79,6 +80,9 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
     // Subtitle Generation State
     const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
+
+    // Asset Management State (Lifted for Persistence)
+    const [userAssets, setUserAssets] = useState<any[]>([]);
 
     // --- Derived State ---
     const selectedClip = [...videoTracks, ...audioTracks, ...textTracks].find(c => c.id === selectedClipId);
@@ -188,51 +192,72 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     // --- Subtitle Generation ---
     const handleGenerateSubtitles = async () => {
         setIsGeneratingSubtitles(true);
-        // Mock API Call Delay
-        await new Promise(r => setTimeout(r, 2000));
+        try {
+            // Real API Call
+            const response = await axios.post("/api/subtitles", {
+                video_tracks: videoTracks,
+                audio_tracks: audioTracks,
+                // Include text tracks if we want to augment? No, fresh start or append.
+            }, {
+                timeout: 300000 // 5 minutes timeout for Gemini 2.5 Pro Audio
+            });
 
-        // Generate Mock Subtitles based on Video Tracks
-        const newTextTracks: any[] = [];
-        videoTracks.forEach((video, i) => {
-            // Create 2 subtitles per video clip as demo
-            if (video.duration < 1) return;
-            const duration = video.duration;
-            const part1 = {
-                id: `sub_${Math.random().toString(36).substr(2, 9)}`,
-                type: 'text',
-                text: "Welcome to this scene",
-                start: video.start,
-                duration: duration / 2,
-                trackIndex: 0,
-                style: {
-                    fontSize: 24,
-                    color: '#ffffff',
-                    fontFamily: 'Inter',
-                    x: 0.5, // Center
-                    y: 0.8  // Bottom
-                }
-            };
-            const part2 = {
-                id: `sub_${Math.random().toString(36).substr(2, 9)}`,
-                type: 'text',
-                text: "This is auto-generated text",
-                start: video.start + (duration / 2),
-                duration: duration / 2,
-                trackIndex: 0,
-                style: {
-                    fontSize: 24,
-                    color: '#ffffff',
-                    fontFamily: 'Inter',
-                    x: 0.5, // Center
-                    y: 0.8
-                }
-            };
-            newTextTracks.push(part1, part2);
+            if (response.data.status === 'success' && Array.isArray(response.data.subtitles)) {
+                // Map to Track interface
+                const newSubs: Track[] = response.data.subtitles.map((sub: any) => ({
+                    id: `sub_${Math.random().toString(36).substr(2, 9)}`,
+                    type: 'text',
+                    text: sub.text,
+                    start: sub.start,
+                    duration: sub.duration,
+                    trackIndex: 0,
+                    style: {
+                        fontSize: 48, // Larger default
+                        color: '#ffffff',
+                        fontFamily: 'Inter',
+                        x: 0.5,
+                        y: 0.8, // Bottom
+                        stroke: '#000000',
+                        strokeWidth: 4,
+                        fontWeight: '800' // Bold by default for shorts
+                    }
+                }));
+                setTextTracks(newSubs);
+                saveToHistory(videoTracks, audioTracks, newSubs);
+            } else {
+                console.error("Subtitle Generation Error:", response.data);
+                const msg = response.data.message || response.data.error || "Unknown error";
+                const detail = JSON.stringify(response.data);
+                alert(`Subtitle generation failed: ${msg}\nDetails: ${detail}`);
+            }
+        } catch (e: any) {
+            console.error("Subtitle Request Failed:", e);
+            if (e.response && e.response.data) {
+                alert(`Request Failed: ${e.response.data.error || e.message}`);
+            } else {
+                alert("Subtitle generation request failed. Check server console.");
+            }
+        } finally {
+            setIsGeneratingSubtitles(false);
+        }
+    };
+
+    const handleApplyToAll = (id: string, style: any) => {
+        // Apply the style of the current clip (id) to ALL text clips
+        const sourceClip = textTracks.find(t => t.id === id);
+        if (!sourceClip || !sourceClip.style) return;
+
+        const newTracks = textTracks.map(t => {
+            if (t.type === 'text') {
+                return {
+                    ...t,
+                    style: { ...t.style, ...style }
+                };
+            }
+            return t;
         });
-
-        setTextTracks(newTextTracks);
-        saveToHistory(videoTracks, audioTracks, newTextTracks);
-        setIsGeneratingSubtitles(false);
+        setTextTracks(newTracks);
+        saveToHistory(videoTracks, audioTracks, newTracks);
     };
 
     // --- Asset Management ---
@@ -246,7 +271,11 @@ export function StudioView({ analysisResult }: StudioViewProps) {
         return new Promise((resolve) => {
             const element = document.createElement(type);
             element.src = url;
-            element.onloadedmetadata = () => resolve(element.duration);
+            element.onloadedmetadata = () => {
+                const duration = element.duration;
+                if (!Number.isFinite(duration)) resolve(10);
+                else resolve(duration);
+            };
             element.onerror = () => resolve(10);
         });
     };
@@ -324,24 +353,125 @@ export function StudioView({ analysisResult }: StudioViewProps) {
         setIsExportModalOpen(true);
         setExportStatus('uploading');
         setFinalDownloadUrl(null);
-        // ... (Simplified logic for brevity, assuming similar to previous)
+
+        const outputKey = `export_${Date.now()}.mp4`;
+        // Hardcoded R2 Public Base URL (Using r2.dev for MVP as configured in env)
+        // Ideally should come from env but for client side we need NEXT_PUBLIC_...
+        // Assuming the R2_PUBLIC_URL from env finding earlier: https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev
+        const publicDownloadUrl = `https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/${outputKey}`;
+        const statusUrl = `https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/${outputKey}_status.json`;
+
+        // Polling Logic
+        const pollForVideo = async (attempts = 0) => {
+            if (attempts > 300) { // Timeout after ~15 mins (was 60/3mins)
+                setExportStatus('failed');
+                setExportError("Timeout waiting for video render. Please check your Dashboard.");
+                return;
+            }
+
+            try {
+                // Check if file exists via HEAD
+                const check = await fetch(publicDownloadUrl, { method: 'HEAD' });
+                if (check.ok) {
+                    setFinalDownloadUrl(publicDownloadUrl);
+                    setExportStatus('finished');
+                    setDetailedStatus("Ready for download!");
+                    return;
+                }
+
+                // Check for detailed status JSON
+                try {
+                    const statusCheck = await fetch(statusUrl + "?t=" + Date.now()); // Prevent caching
+                    if (statusCheck.ok) {
+                        const data = await statusCheck.json();
+                        if (data.message) {
+                            setDetailedStatus(data.message);
+                        }
+                    }
+                } catch (err) {
+                    // Ignore status fetch errors
+                }
+
+            } catch (e) {
+                // Ignore network errors during poll (cors etc might happen initially)
+            }
+
+            // Retry
+            setTimeout(() => pollForVideo(attempts + 1), 3000);
+        };
+
         try {
+            // ... (Track cleaning logic identical to before) ...
+            // 1. Clean Text Tracks
+            const cleanTextTracks = textTracks.map(t => ({
+                id: t.id,
+                text: t.text,
+                start: t.start,
+                duration: t.duration,
+                type: 'text',
+                track_index: t.trackIndex || 0,
+                style: t.style ? {
+                    color: t.style.color,
+                    font_size: (t.style.fontSize || 24) * 3, // Scale for 1080p (Assume preview is ~360px wide)
+                    font_family: t.style.fontFamily,
+                    font_weight: t.style.fontWeight,
+                    stroke: t.style.stroke,
+                    stroke_width: t.style.strokeWidth,
+                    background_color: t.style.backgroundColor,
+                    shadow: t.style.shadow,
+                    x: t.style.x,
+                    y: t.style.y
+                } : undefined
+            }));
+
+            // 2. Clean Video Tracks
+            const cleanVideoTracks = videoTracks.map(t => ({
+                id: t.id,
+                url: t.url,
+                start: t.start,
+                duration: t.duration,
+                source_duration: t.sourceDuration,
+                volume: t.volume,
+                track_index: t.trackIndex || 0,
+                type: 'video'
+            }));
+
+            // 3. Clean Audio Tracks
+            const cleanAudioTracks = audioTracks.map(t => ({
+                id: t.id,
+                url: t.url,
+                start: t.start,
+                duration: t.duration,
+                source_duration: t.sourceDuration,
+                volume: t.volume,
+                track_index: t.trackIndex || 0,
+                type: 'audio'
+            }));
+
             const response = await axios.post("/api/render", {
-                video_tracks: videoTracks,
-                audio_tracks: audioTracks,
+                video_tracks: cleanVideoTracks,
+                audio_tracks: cleanAudioTracks,
+                text_tracks: cleanTextTracks,
                 script: currentScript,
-                output_key: `export_${Date.now()}.mp4`
+                output_key: outputKey, // Use const variable
+                width: 1080,
+                height: 1920
             });
-            if (response.data.status === 'mock_success') {
-                setIsExportModalOpen(false);
-                alert("Simulated Export Success");
+
+            if (response.data.status === 'mock_success' || response.data.status === 'rendering_started' || response.data.status === 'finished') {
+                setExportStatus('processing');
+                // Start Polling
+                pollForVideo();
             } else {
-                setExportStatus('failed'); // Placeholder for real polling logic
-                setExportError("Real export pipeline pending configuration.");
+                setExportStatus('failed');
+                setExportError("Unexpected status: " + response.data.status);
             }
         } catch (e: any) {
+            console.error("Export Error:", e);
             setExportStatus('failed');
-            setExportError(e.message || "Export failed");
+            const serverError = e.response?.data?.error || e.response?.data?.detail;
+            const errorMsg = typeof serverError === 'object' ? JSON.stringify(serverError) : (serverError || e.message || "Export failed");
+            setExportError(errorMsg);
         }
     };
 
@@ -378,10 +508,11 @@ export function StudioView({ analysisResult }: StudioViewProps) {
             <ExportModal
                 isOpen={isExportModalOpen}
                 status={exportStatus}
-                errorMessage={exportError}
+                detailedStatus={detailedStatus}
                 downloadUrl={finalDownloadUrl}
+                errorMessage={exportError}
                 onClose={() => setIsExportModalOpen(false)}
-                onDownload={triggerDownload}
+                onDownload={() => window.open(finalDownloadUrl!, '_blank')}
             />
 
             {/* HEADER */}
@@ -408,6 +539,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                     <div className="w-[380px] flex flex-col border-r border-zinc-800 bg-zinc-950 shrink-0 z-10">
                         <div className="flex items-center gap-1 p-2 border-b border-zinc-900 bg-zinc-950 shrink-0">
                             <button onClick={() => setActiveTab('Media')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Media' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Media</button>
+                            <button onClick={() => setActiveTab('Stock')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Stock' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Stock Library</button>
                             <button onClick={() => setActiveTab('Subtitle')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Subtitle' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Subtitle</button>
                         </div>
                         <div className="flex-1 min-h-0">
@@ -417,6 +549,19 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                                     currentBackground={null}
                                     onAssetUploaded={handleAssetUploaded}
                                     onExternalDragStart={setExternalDragItem}
+                                    userAssets={userAssets}
+                                    onUpdateAssets={setUserAssets}
+                                    mode="uploads"
+                                />
+                            ) : activeTab === 'Stock' ? (
+                                <AssetPanel
+                                    onSelectBackground={handleAddAsset}
+                                    currentBackground={null}
+                                    onAssetUploaded={handleAssetUploaded}
+                                    onExternalDragStart={setExternalDragItem}
+                                    userAssets={userAssets}
+                                    onUpdateAssets={setUserAssets}
+                                    mode="stock"
                                 />
                             ) : (
                                 <SubtitlePanel
@@ -458,6 +603,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                                 <PropertiesPanel
                                     selectedClip={selectedClip}
                                     onUpdateClip={handleUpdateClip}
+                                    onApplyToAll={handleApplyToAll}
                                 />
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2 p-8 text-center opacity-50">
@@ -472,9 +618,6 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
                 {/* BOTTOM: TIMELINE */}
                 <div className="h-[320px] bg-zinc-950 shrink-0 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20 relative">
-                    <div className="h-8 border-b border-zinc-800 flex items-center px-4 gap-4 bg-[#1e1e1e]">
-                        <span className="text-[10px] text-zinc-500">Timeline</span>
-                    </div>
                     <div className="flex-1 min-h-0 bg-[#1e1e1e]">
                         <TimelinePanel
                             script={currentScript}

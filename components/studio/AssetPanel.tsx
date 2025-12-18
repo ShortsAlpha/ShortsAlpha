@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Gamepad2, Video, Search, Upload, Music, Plus, Image as ImageIcon, FolderOpen } from "lucide-react";
 import axios from "axios";
 
@@ -9,27 +9,58 @@ interface AssetPanelProps {
 
     // Mobile Drag Trigger
     onExternalDragStart?: (asset: { url: string, type: 'video' | 'audio', title: string }) => void;
+
+    // Lifted State
+    userAssets?: any[];
+    onUpdateAssets?: (assets: any[]) => void;
+
+    // View Mode from Parent
+    mode?: 'uploads' | 'stock';
 }
 
-// Mock Stock Assets
+// Mock Stock Assets Removed - Replaced by API
+/*
 const STOCK_ASSETS = [
     { id: 'mc_parkour', title: 'Minecraft Parkour', thumb: '/thumbs/mc.jpg', url: 'https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/stock/minecraft_parkour.mp4', type: 'video', category: 'Gaming' },
-    { id: 'gta_ramps', title: 'GTA V Ramps', thumb: '/thumbs/gta.jpg', url: 'https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/stock/gta_ramps.mp4', type: 'video', category: 'Gaming' },
-    { id: 'satisfying', title: 'Satisfying Sand', thumb: '/thumbs/sand.jpg', url: 'https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/stock/satisfying_sand.mp4', type: 'video', category: 'Oddly Satisfying' },
+    ...
 ];
+*/
 
 type Tab = 'media' | 'library';
 
-export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploaded, onExternalDragStart }: AssetPanelProps) {
-    const [activeTab, setActiveTab] = useState<Tab>('media');
+export function AssetPanel({
+    onSelectBackground,
+    currentBackground,
+    onAssetUploaded,
+    onExternalDragStart,
+    userAssets = [],
+    onUpdateAssets,
+    mode = 'uploads'
+}: AssetPanelProps) {
+    // Derived state from mode
+    const activeTab = mode === 'uploads' ? 'media' : 'library';
+
     const [search, setSearch] = useState("");
 
     // Split state: User Assets vs Stock (Static)
-    const [userAssets, setUserAssets] = useState<any[]>([]);
-    const [stockAssets] = useState(STOCK_ASSETS);
+    // const [userAssets, setUserAssets] = useState<any[]>([]); // MOVED TO PROPS
+    const [stockAssets, setStockAssets] = useState<any[]>([]); // Fetched from API
+    const [stockTab, setStockTab] = useState<'visual' | 'audio'>('visual');
+    const [customName, setCustomName] = useState("");
 
     const [isUploading, setIsUploading] = useState(false);
+
+    // FETCH STOCK ASSETS
+    useEffect(() => {
+        if (mode === 'stock') {
+            axios.get('/api/stock')
+                .then(res => setStockAssets(res.data.assets || []))
+                .catch(err => console.error("Failed to fetch stock:", err));
+        }
+    }, [mode]);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const stockInputRef = useRef<HTMLInputElement>(null);
 
     // LONG PRESS LOGIC
     const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -69,15 +100,27 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
     };
 
 
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, isStock = false) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        if (isStock && !customName.trim()) {
+            alert("Please enter a name for the stock asset first.");
+            return;
+        }
+
         setIsUploading(true);
         try {
+            const folder = isStock ? "stock" : "uploads";
+
+            // Allow Custom Filename for stock (to be neat in R2)
+            const extension = file.name.split('.').pop();
+            const finalFilename = isStock ? `${customName}.${extension}` : file.name;
+
             const { data: { uploadUrl, key, publicUrl } } = await axios.post("/api/upload", {
-                filename: file.name,
+                filename: finalFilename,
                 contentType: file.type,
+                prefix: folder
             });
 
             await axios.put(uploadUrl, file, { headers: { "Content-Type": file.type } });
@@ -87,30 +130,46 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
                 file.name.toLowerCase().endsWith('.wav') ||
                 file.name.toLowerCase().endsWith('.m4a');
 
+            // Force type based on tab if stock
+            let finalType = isAudio ? 'audio' : 'video';
+            if (isStock) {
+                finalType = stockTab === 'audio' ? 'audio' : 'video';
+            }
+
             const newAsset = {
                 id: key,
-                title: file.name,
+                title: isStock ? customName : file.name,
                 url: publicUrl,
-                type: isAudio ? 'audio' : 'video',
-                category: 'User Uploads',
+                type: finalType,
+                category: isStock ? 'Stock' : 'User Uploads',
                 duration: 10 // Default fallback, should extract real duration later
             };
 
-            setUserAssets([newAsset, ...userAssets]);
-
-            // Notify Parent
-            if (onAssetUploaded) {
-                onAssetUploaded(key);
+            if (isStock) {
+                setStockAssets(prev => [newAsset, ...prev]);
+                setCustomName("");
+                // Optionally re-fetch to ensure sync?
+                // axios.get('/api/stock').then(res => setStockAssets(res.data.assets));
+            } else {
+                // Prop Update
+                if (onUpdateAssets) {
+                    onUpdateAssets([newAsset, ...userAssets]);
+                }
+                // Notify Parent
+                if (onAssetUploaded) {
+                    onAssetUploaded(key);
+                }
+                // Switch to media tab to show upload - REMOVED (Derived State)
+                // setActiveTab('media');
             }
-
-            // Switch to media tab to show upload
-            setActiveTab('media');
 
         } catch (error: any) {
             console.error("Upload failed", error);
             alert(`Upload failed: ${error.message || "Unknown error"}`);
         } finally {
             setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (stockInputRef.current) stockInputRef.current.value = "";
         }
     };
 
@@ -170,21 +229,7 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
 
     return (
         <div className="flex flex-col h-full">
-            {/* Sub-Header Tabs */}
-            <div className="flex p-2 gap-1 border-b border-zinc-900">
-                <button
-                    onClick={() => setActiveTab('media')}
-                    className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${activeTab === 'media' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                    My Media
-                </button>
-                <button
-                    onClick={() => setActiveTab('library')}
-                    className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${activeTab === 'library' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                    Stock Library
-                </button>
-            </div>
+            {/* Header Tabs Removed - Controlled by Parent StudioView */}
 
             <div className="p-4 border-b border-zinc-800 space-y-3">
                 {activeTab === 'media' && (
@@ -204,8 +249,56 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
                             type="file"
                             ref={fileInputRef}
                             className="hidden"
-                            accept="video/mp4,video/quicktime,video/webm,video/*,audio/mpeg,audio/wav,audio/m4a,audio/*"
-                            onChange={handleUpload}
+                            accept="video/*,audio/*"
+                            onChange={(e) => handleUpload(e, false)}
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'library' && (
+                    <div className="flex flex-col gap-3">
+                        {/* Sub-Tabs */}
+                        <div className="flex bg-zinc-900 rounded-lg p-1">
+                            <button
+                                onClick={() => setStockTab('visual')}
+                                className={`flex-1 py-1 text-[10px] font-bold uppercase rounded transition-colors ${stockTab === 'visual' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+                            >
+                                Visuals (Görsel)
+                            </button>
+                            <button
+                                onClick={() => setStockTab('audio')}
+                                className={`flex-1 py-1 text-[10px] font-bold uppercase rounded transition-colors ${stockTab === 'audio' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+                            >
+                                SFX (Ses)
+                            </button>
+                        </div>
+
+                        {/* Stock Upload UI */}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="Asset Name..."
+                                value={customName}
+                                onChange={(e) => setCustomName(e.target.value)}
+                                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500"
+                            />
+                            <button
+                                onClick={() => {
+                                    if (!customName.trim()) { alert("Name required!"); return; }
+                                    stockInputRef.current?.click();
+                                }}
+                                disabled={isUploading}
+                                className="w-24 flex items-center justify-center gap-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-[10px] font-bold rounded-lg transition-colors"
+                            >
+                                <Plus className="w-3 h-3" /> Add
+                            </button>
+                        </div>
+                        <input
+                            type="file"
+                            ref={stockInputRef}
+                            className="hidden"
+                            accept={stockTab === 'visual' ? "video/*" : "audio/*"}
+                            onChange={(e) => handleUpload(e, true)}
                         />
                     </div>
                 )}
@@ -228,9 +321,12 @@ export function AssetPanel({ onSelectBackground, currentBackground, onAssetUploa
                     <div>
                         <h3 className="text-xs font-bold text-zinc-500 uppercase mb-3 flex items-center gap-2">
                             <Gamepad2 className="w-3 h-3" />
-                            Viral Backgrounds
+                            {stockTab === 'visual' ? 'Stock Visuals' : 'Sound Effects'}
                         </h3>
-                        {renderGrid(stockAssets, "No items found.")}
+                        {renderGrid(
+                            stockAssets.filter(a => stockTab === 'visual' ? a.type === 'video' : a.type === 'audio'),
+                            "No stock items found."
+                        )}
                     </div>
                 )}
             </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
+import https from "https";
 
 export async function POST(request: NextRequest) {
     try {
@@ -29,15 +30,20 @@ export async function POST(request: NextRequest) {
         const publicUrlBase = process.env.R2_PUBLIC_URL;
         const resultUrl = `${publicUrlBase}/${body.output_key}`;
 
+
+
         const response = await axios.post(modalUrl, {
             ...body,
-            // Inject Setup Credentials securely, fallback to empty string to prevent 422 (Pydantic 'field required')
+            // Inject Setup Credentials securely
             r2_account_id: process.env.R2_ACCOUNT_ID || body.r2_account_id || "",
             r2_access_key_id: process.env.R2_ACCESS_KEY_ID || body.r2_access_key_id || "",
             r2_secret_access_key: process.env.R2_SECRET_ACCESS_KEY || body.r2_secret_access_key || "",
             r2_bucket_name: process.env.R2_BUCKET_NAME || body.r2_bucket_name || ""
         }, {
-            timeout: 30000 // 30s timeout for start request
+            timeout: 60000, // Increased to 60s
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+            httpsAgent: new https.Agent({ keepAlive: true })
         });
 
         return NextResponse.json({
@@ -50,8 +56,9 @@ export async function POST(request: NextRequest) {
         if (error.response) {
             console.error("Modal Response Status:", error.response.status);
             console.error("Modal Response Data:", JSON.stringify(error.response.data, null, 2));
+            // Forward the actual error payload (e.g. usage info or pydantic detail)
             return NextResponse.json(
-                { error: `Modal Error ${error.response.status}: ${JSON.stringify(error.response.data)}` },
+                error.response.data,
                 { status: error.response.status }
             );
         }
