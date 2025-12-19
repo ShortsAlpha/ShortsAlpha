@@ -65,9 +65,10 @@ export function VoiceSelector({ onBack, onSelect }: VoiceSelectorProps) {
                     setLoadingPreview(null);
                 };
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Preview generation failed", error);
-            alert("Could not generate preview.");
+            const msg = error.response?.data?.error || error.response?.data?.message || error.message || "Unknown error";
+            alert(`Preview failed: ${msg}`);
         } finally {
             setLoadingPreview(null);
         }
@@ -96,8 +97,8 @@ export function VoiceSelector({ onBack, onSelect }: VoiceSelectorProps) {
                             key={voice.id}
                             onClick={() => setSelectedVoice(voice.id)}
                             className={`group relative p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${selectedVoice === voice.id
-                                    ? "bg-indigo-900/20 border-indigo-500 shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)]"
-                                    : "bg-zinc-900/40 border-white/5 hover:bg-zinc-900 hover:border-white/10"
+                                ? "bg-indigo-900/20 border-indigo-500 shadow-[0_0_20px_-5px_rgba(99,102,241,0.3)]"
+                                : "bg-zinc-900/40 border-white/5 hover:bg-zinc-900 hover:border-white/10"
                                 }`}
                         >
                             <div className="flex items-center gap-4">
@@ -120,8 +121,8 @@ export function VoiceSelector({ onBack, onSelect }: VoiceSelectorProps) {
                                 <button
                                     onClick={(e) => handlePreview(voice, e)}
                                     className={`p-3 rounded-full transition-colors ${playingPreview === voice.id
-                                            ? "bg-white text-black"
-                                            : "hover:bg-white/10 text-zinc-400 hover:text-white"
+                                        ? "bg-white text-black"
+                                        : "hover:bg-white/10 text-zinc-400 hover:text-white"
                                         }`}
                                     title="Play Preview"
                                 >
