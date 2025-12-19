@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
         const response = await axios.get(targetUrl, {
             headers: {
-                'User-Agent': 'ShortsAlpha/1.0.0 (by /u/ShortsAlphaBot)'
+                'User-Agent': 'web:ShortsAlpha:1.0.0 (by /u/ShortsAlphaBot)'
             }
         });
 
@@ -44,6 +44,8 @@ export async function GET(req: NextRequest) {
 
     } catch (error: any) {
         console.error("Reddit API Error:", error.message);
-        return NextResponse.json({ error: "Failed to fetch from Reddit" }, { status: 500 });
+        const status = error.response?.status || 500;
+        const msg = error.response?.data?.message || error.message || "Failed to fetch from Reddit";
+        return NextResponse.json({ error: `Reddit Error (${status}): ${msg}` }, { status: status });
     }
 }

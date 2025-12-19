@@ -45,8 +45,9 @@ export function RedditSource({ onBack, onGenerate }: RedditSourceProps) {
             const response = await axios.get(`/api/reddit?subreddit=${targetSub}&listing=${filter}&time=${timeFrame}&limit=15`);
             const validPosts = response.data.posts.filter((p: RedditPost) => p.title.length > 10);
             setPosts(validPosts);
-        } catch (err) {
-            setError("Failed to fetch posts. Check subreddit name.");
+        } catch (err: any) {
+            const msg = err.response?.data?.error || "Failed to fetch posts.";
+            setError(msg);
         } finally {
             setIsLoading(false);
         }
