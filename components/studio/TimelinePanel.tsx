@@ -1115,12 +1115,7 @@ export function TimelinePanel({
                             </div>
 
                             {/* Script Header */}
-                            {script.length > 0 && (
-                                <div className="h-8 mt-4 flex items-center px-2 text-orange-400/50">
-                                    <Type className="w-3 h-3 mr-2" />
-                                    <span className="text-[9px] uppercase font-bold">Subs</span>
-                                </div>
-                            )}
+
                         </div>
                     </div>
 

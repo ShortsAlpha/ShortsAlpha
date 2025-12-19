@@ -9,7 +9,7 @@ import { ExportModal, ExportStatus } from "./studio/ExportModal";
 import { WhatsNewModal } from "./WhatsNewModal";
 import {
     Download, ChevronLeft, Settings2, LayoutTemplate,
-    Video, Music, Type, Mic, Loader2
+    Video, Music, Type, Mic, Loader2, Sparkles
 } from "lucide-react";
 import axios from 'axios';
 
@@ -630,6 +630,25 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
     return (
         <div className="fixed inset-0 bg-zinc-950 text-white flex flex-col z-50 animate-in fade-in duration-300 font-sans">
             <WhatsNewModal />
+
+            {/* Subtitle Generation Loading Overlay */}
+            {isGeneratingSubtitles && (
+                <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4">
+                        <div className="relative">
+                            <div className="w-12 h-12 rounded-full border-4 border-zinc-800 border-t-indigo-500 animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                            <h3 className="text-white font-bold text-lg">Generating Subtitles...</h3>
+                            <p className="text-zinc-400 text-sm">AI is transcribing your video.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ExportModal
                 isOpen={isExportModalOpen}
                 status={exportStatus}
