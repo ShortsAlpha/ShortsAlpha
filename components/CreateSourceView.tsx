@@ -40,6 +40,8 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
             // Generate audio for each segment
             const segments = updatedScript.script; // expecting array of { text, type, ... }
 
+            let successCount = 0;
+
             for (let i = 0; i < segments.length; i++) {
                 const segment = segments[i];
                 if (segment.text) {
@@ -52,11 +54,17 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
                         });
                         if (res.data.url) {
                             segment.audioUrl = res.data.url;
+                            successCount++;
                         }
-                    } catch (err) {
+                    } catch (err: any) {
                         console.error(`Failed to generate audio for segment ${i}`, err);
+                        // Optional: Store error to show user
                     }
                 }
+            }
+
+            if (successCount === 0 && segments.length > 0) {
+                throw new Error("No audio could be generated. Please check your API Keys (GEMINI_API_KEY) and R2 Configuration.");
             }
 
             setProgress("Finalizing...");
@@ -65,9 +73,9 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
                 onScriptGenerated(updatedScript);
             }, 500);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Voice generation process failed", error);
-            alert("Failed to generate voiceover. Check console.");
+            alert(`Failed to generate voiceover: ${error.message || "Unknown error"}`);
             setIsGeneratingAudio(false);
         }
     };
