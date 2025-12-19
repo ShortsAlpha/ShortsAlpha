@@ -41,6 +41,7 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
             const segments = updatedScript.script; // expecting array of { text, type, ... }
 
             let lastErrorMsg = "";
+            let successCount = 0;
 
             for (let i = 0; i < segments.length; i++) {
                 const segment = segments[i];
