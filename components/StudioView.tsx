@@ -4,16 +4,18 @@ import { PlayerPanel } from "./studio/PlayerPanel";
 import { TimelinePanel } from "./studio/TimelinePanel";
 import { PropertiesPanel } from "./studio/PropertiesPanel";
 import { SubtitlePanel } from "./studio/SubtitlePanel";
+import { VoiceoverPanel } from "./studio/VoiceoverPanel";
 import { ExportModal, ExportStatus } from "./studio/ExportModal";
 import { WhatsNewModal } from "./WhatsNewModal";
 import {
     Download, ChevronLeft, Settings2, LayoutTemplate,
-    Video, Music, Type
+    Video, Music, Type, Mic, Loader2
 } from "lucide-react";
 import axios from 'axios';
 
 interface StudioViewProps {
     analysisResult: any;
+    onBack?: () => void;
 }
 
 export interface Track {
@@ -36,15 +38,86 @@ interface HistoryState {
     text: Track[];
 }
 
-export function StudioView({ analysisResult }: StudioViewProps) {
+export function StudioView({ analysisResult, onBack }: StudioViewProps) {
     // --- Global State ---
+    const [isLoading, setIsLoading] = useState(true); // Fake loading state
     const [videoTracks, setVideoTracks] = useState<Track[]>([]);
     const [audioTracks, setAudioTracks] = useState<Track[]>([]);
     const [textTracks, setTextTracks] = useState<Track[]>([]);
 
+    useEffect(() => {
+        // Fake loading delay
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
+
+
     // Script & Meta
     const [currentScript, setCurrentScript] = useState(analysisResult?.script || []);
     const [voiceoverAudio, setVoiceoverAudio] = useState<string | null>(null);
+
+    // --- Auto-Load Voiceovers from Script ---
+    useEffect(() => {
+        if (!currentScript || !Array.isArray(currentScript)) return;
+
+        // Check if we have audioUrls that aren't in tracks yet
+        const newAudioTracks: Track[] = [];
+        const newAssets: any[] = [];
+        let currentAudioTime = 0;
+        let hasNewAudio = false;
+
+        currentScript.forEach((segment: any, index: number) => {
+            if (segment.audioUrl) {
+                // Prevent duplicates
+                const isAlreadyTrack = audioTracks.some(t => t.url === segment.audioUrl);
+
+                if (!isAlreadyTrack) {
+                    hasNewAudio = true;
+                    // Improved duration estimation (approx 1 sec per 15 chars if metadata missing)
+                    const estimatedDur = segment.text ? Math.max(2, segment.text.length / 15) : 5;
+                    const duration = segment.duration || estimatedDur;
+
+                    newAudioTracks.push({
+                        id: `voice_${index}_${Date.now()}`,
+                        url: segment.audioUrl,
+                        type: 'audio',
+                        start: currentAudioTime,
+                        duration: duration,
+                        trackIndex: 0,
+                        volume: 1.0,
+                        sourceDuration: duration,
+                        text: segment.text
+                    });
+
+                    // Add to 'My Media' assets
+                    const isAssetExists = userAssets.some(a => a.url === segment.audioUrl);
+                    if (!isAssetExists) {
+                        newAssets.push({
+                            id: `asset_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Added ID
+                            key: segment.audioUrl,
+                            url: segment.audioUrl,
+                            type: 'audio',
+                            LastModified: new Date(),
+                            Size: 0
+                        });
+                    }
+
+                    currentAudioTime += duration;
+                }
+            }
+        });
+
+        if (hasNewAudio) {
+            setAudioTracks(prev => [...prev, ...newAudioTracks]);
+            setUserAssets(prev => [...prev, ...newAssets]);
+
+            // Adjust duration to fit new audio
+            setDuration(prev => Math.max(prev, currentAudioTime));
+        }
+    }, [currentScript]);
 
     // Playback State
     const [isPlaying, setIsPlaying] = useState(false);
@@ -53,7 +126,7 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
     // Selection & UI State
     const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock'>('Media');
+    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock' | 'Voiceover'>('Media');
 
     // Track State (Muted/Hidden/Locked)
     const [videoTrackState, setVideoTrackState] = useState<Record<number, { muted: boolean, hidden: boolean, locked: boolean }>>({});
@@ -280,10 +353,16 @@ export function StudioView({ analysisResult }: StudioViewProps) {
         });
     };
 
-    const handleAddAsset = async (url: string) => {
+    const handleAddAsset = async (url: string, mediaType?: 'video' | 'audio') => {
         const cleanUrl = url.split(/[?#]/)[0];
-        const isAudio = cleanUrl.match(/\.(mp3|wav|m4a)$/i);
-        const type = isAudio ? 'audio' : 'video';
+        // If type is provided, use it. Otherwise, guess from extension.
+        let type: 'video' | 'audio' = mediaType || 'video';
+
+        if (!mediaType) {
+            const isAudio = cleanUrl.match(/\.(mp3|wav|m4a|aac|ogg)$/i);
+            type = isAudio ? 'audio' : 'video';
+        }
+
         const duration = await getAssetDuration(url, type);
 
         if (type === 'audio') {
@@ -529,6 +608,25 @@ export function StudioView({ analysisResult }: StudioViewProps) {
     }, [externalDragItem]);
 
 
+    if (isLoading) {
+        return (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 text-white font-sans">
+                <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-500">
+                    <div className="relative">
+                        <div className="w-16 h-16 rounded-full border-4 border-zinc-800 border-t-indigo-500 animate-spin"></div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Video className="w-6 h-6 text-zinc-700" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                        <span className="text-lg font-bold tracking-tight">ShortsAlpha</span>
+                        <span className="text-xs text-zinc-500 animate-pulse">Initializing Studio...</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="fixed inset-0 bg-zinc-950 text-white flex flex-col z-50 animate-in fade-in duration-300 font-sans">
             <WhatsNewModal />
@@ -550,13 +648,24 @@ export function StudioView({ analysisResult }: StudioViewProps) {
 
                     {/* LEFT PANEL */}
                     <div className="w-[380px] flex flex-col border-r border-zinc-800 bg-zinc-950 shrink-0 z-10">
+
                         <div className="flex items-center gap-1 p-2 border-b border-zinc-900 bg-zinc-950 shrink-0">
+                            {onBack && (
+                                <button
+                                    onClick={onBack}
+                                    className="p-1 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition-colors mr-1"
+                                    title="Back to Dashboard"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                            )}
                             <button onClick={() => setActiveTab('Media')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Media' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Media</button>
                             <button onClick={() => setActiveTab('Stock')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Stock' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Stock Library</button>
-                            <button onClick={() => setActiveTab('Subtitle')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Subtitle' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Subtitle</button>
+                            <button onClick={() => setActiveTab('Subtitle')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Subtitle' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Subtitles</button>
+                            <button onClick={() => setActiveTab('Voiceover')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Voiceover' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Voiceover</button>
                         </div>
                         <div className="flex-1 min-h-0">
-                            {activeTab === 'Media' ? (
+                            {activeTab === 'Media' && (
                                 <AssetPanel
                                     onSelectBackground={handleAddAsset}
                                     currentBackground={null}
@@ -566,7 +675,8 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                                     onUpdateAssets={setUserAssets}
                                     mode="uploads"
                                 />
-                            ) : activeTab === 'Stock' ? (
+                            )}
+                            {activeTab === 'Stock' && (
                                 <AssetPanel
                                     onSelectBackground={handleAddAsset}
                                     currentBackground={null}
@@ -576,10 +686,16 @@ export function StudioView({ analysisResult }: StudioViewProps) {
                                     onUpdateAssets={setUserAssets}
                                     mode="stock"
                                 />
-                            ) : (
+                            )}
+                            {activeTab === 'Subtitle' && (
                                 <SubtitlePanel
                                     onGenerateSubtitles={handleGenerateSubtitles}
                                     isGenerating={isGeneratingSubtitles}
+                                />
+                            )}
+                            {activeTab === 'Voiceover' && (
+                                <VoiceoverPanel
+                                    onAddTrack={(url, type) => handleAddAsset(url, type)}
                                 />
                             )}
                         </div>

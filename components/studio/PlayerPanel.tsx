@@ -79,26 +79,19 @@ export function PlayerPanel({
                 const duration = Number.isFinite(track.duration) ? track.duration : 300;
                 const endTime = track.start + duration;
 
-                // Debug Logging
-                // console.log(`Audio Track ${track.id}:`, { 
-                //    currentTime, 
-                //    trackStart: track.start, 
-                //    trackEnd: endTime,
-                //    elPaused: el.paused, 
-                //    elVolume: el.volume,
-                //    elError: el.error 
-                // });
-
                 if (currentTime >= track.start && currentTime < endTime) {
                     const localTime = Math.max(0, currentTime - track.start);
                     // Only sync if drift is significant to avoid stutter
-                    if (Math.abs(el.currentTime - localTime) > 0.5) el.currentTime = localTime;
+                    if (Math.abs(el.currentTime - localTime) > 0.5) {
+                        // console.log(`[Audio Sync] Adjusting Time ${track.id}: ${el.currentTime} -> ${localTime}`);
+                        el.currentTime = localTime;
+                    }
 
                     if (isPlaying && el.paused) {
                         const playPromise = el.play();
                         if (playPromise !== undefined) {
                             playPromise.catch((e) => {
-                                if (e.name !== 'AbortError') console.warn("Audio Play Error:", track.id, e);
+                                if (e.name !== 'AbortError') console.warn("[Audio Play Error]", track.id, e);
                             });
                         }
                     }
@@ -111,11 +104,12 @@ export function PlayerPanel({
                 const isTrackMuted = audioTrackState[trackIdx]?.muted;
                 const targetVol = isTrackMuted ? 0 : (track.volume ?? 1);
 
-                // Volume Debug
-                if (targetVol === 0) console.warn("Audio Track Muted via Logic", track.id);
+                // DEBUG LOGGING
+                // if (isPlaying) console.log(`[Audio Debug] ${track.id} | Vol: ${targetVol} | Muted: ${el.muted} | Time: ${el.currentTime} | Paused: ${el.paused} | SRC: ${el.src}`);
 
-                // Direct Volume Control
                 el.volume = Math.min(1, Math.max(0, targetVol));
+            } else {
+                console.warn(`[Audio Debug] Ref missing for track ${track.id}`);
             }
         });
     }, [currentTime, isPlaying, activeVideoClips, audioTracks, videoTrackState, audioTrackState]);
@@ -319,16 +313,55 @@ export function PlayerPanel({
 
             {/* 3. Audio Mixer Handlers (Invisible but Rendered) */}
             <div style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}>
-                {audioTracks.map(track => (
-                    <audio
-                        key={track.id}
-                        ref={(el) => { if (el) audioRefs.current[track.id] = el; }}
-                        src={track.url}
-                        preload="auto"
-                        playsInline
-                        crossOrigin="anonymous"
-                    />
-                ))}
+                {audioTracks.map(track => {
+                    // Apply Proxy Logic for R2 URLs (Fixes iOS/CORS issues)
+                    let src = track.url;
+                    if (src && (src.includes('r2.dev') || src.includes('r2.cloudflarestorage'))) {
+                        try {
+                            // Extract key from URL
+                            let key = src.split('.dev/')[1];
+                            if (!key) {
+                                // Fallback for other domains or clean path
+                                const urlObj = new URL(src);
+                                key = urlObj.pathname.startsWith('/') ? urlObj.pathname.slice(1) : urlObj.pathname;
+                            }
+
+                            // CRITICAL: Strip any query parameters (like presigned signatures) from the KEY
+                            if (key && key.includes('?')) {
+                                key = key.split('?')[0];
+                            }
+
+                            // CRITICAL: Handle Bucket Name prefix (shortsalpha/) which R2 Public URLs might include
+                            // If key starts with implicit bucket name but we need pure key
+                            if (key) {
+                                // Known folders
+                                if (key.includes('stock/')) {
+                                    key = key.substring(key.indexOf('stock/'));
+                                } else if (key.includes('uploads/')) {
+                                    key = key.substring(key.indexOf('uploads/'));
+                                }
+                            }
+
+                            if (key) {
+                                src = `/api/video-proxy?key=${encodeURIComponent(key)}`;
+                            }
+                        } catch (e) {
+                            console.error("Proxy URL Generation Failed", e);
+                        }
+                    }
+
+                    return (
+                        <audio
+                            key={track.id}
+                            ref={(el) => { if (el) audioRefs.current[track.id] = el; }}
+                            src={src}
+                            preload="auto"
+                            playsInline
+                            crossOrigin="anonymous"
+                            onError={(e) => console.error("Audio Playback Error:", track.id, src, e.currentTarget.error)}
+                        />
+                    );
+                })}
             </div>
         </div>
     );

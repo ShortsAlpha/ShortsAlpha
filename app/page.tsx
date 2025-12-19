@@ -6,26 +6,20 @@ import { CreateSourceView } from "@/components/CreateSourceView";
 // AnalysisView removed
 import { StudioView } from "@/components/StudioView";
 
-type ViewState = 'dashboard' | 'create_source' | 'studio'; // Removed 'analysis' from ViewState
+type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings';
 
 export default function Home() {
     const [activeView, setActiveView] = useState<ViewState>("dashboard");
     const [analysisResult, setAnalysisResult] = useState<any>(null);
 
     const handleSelectMode = (mode: 'remix' | 'create') => {
-        // user said "analysis screen is unnecessary. Remix clip will send us there".
-        // So both modes should probably just go to Studio or Analysis is skipped.
-        // If mode is 'remix', we usually go to Studio with empty state?
-        // Let's just set View to 'studio' directly for both, or just handle Remix.
-        // Actually, if I remove 'analysis', I should just jump to 'studio'.
-
-        // Mock Analysis Result for now to satisfy prop
-        const mockAnalysis = {
-            script: [],
-            metadata: {}
-        };
-        setAnalysisResult(mockAnalysis);
-        setActiveView('studio'); // Corrected from setCurrentView to setActiveView
+        if (mode === 'create') {
+            setActiveView('create_source');
+        } else {
+            // Remix / Create From Zero -> Go straight to Studio (Empty)
+            setAnalysisResult({ script: [], metadata: {} }); // Reset/Empty
+            setActiveView('studio');
+        }
     };
 
     const handleScriptGenerated = (script: any) => {
@@ -61,7 +55,22 @@ export default function Home() {
                 {/* Analysis View Removed */}
 
                 {activeView === "studio" && (
-                    <StudioView analysisResult={analysisResult} />
+                    <StudioView
+                        analysisResult={analysisResult}
+                        onBack={() => setActiveView("dashboard")}
+                    />
+                )}
+
+                {/* Coming Soon Screens */}
+                {(activeView === 'rendered' || activeView === 'stats' || activeView === 'settings') && (
+                    <div className="flex flex-col items-center justify-center h-full animate-in fade-in zoom-in duration-500">
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+                            Coming Soon
+                        </h2>
+                        <p className="text-zinc-500 max-w-sm text-center">
+                            This feature is currently under development. Stay tuned for updates in the next alpha build!
+                        </p>
+                    </div>
                 )}
             </div>
         </main>

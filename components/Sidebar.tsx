@@ -1,5 +1,5 @@
 "use client";
-import { LayoutDashboard, Clapperboard, Settings, Home } from "lucide-react";
+import { LayoutDashboard, Clapperboard, Settings, Home, Video } from "lucide-react";
 
 interface SidebarProps {
     activeView: string;
@@ -9,8 +9,9 @@ interface SidebarProps {
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
     const menuItems = [
         { id: "dashboard", label: "Home", icon: Home },
-        // Analysis Removed
         { id: "studio", label: "Studio", icon: Clapperboard },
+        { id: "rendered", label: "Rendered Videos", icon: Video },
+        { id: "stats", label: "Channel Stats", icon: LayoutDashboard }, // Using LayoutDashboard as placeholder for Stats
     ];
 
     return (
@@ -46,7 +47,17 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
             </nav>
 
             <div className="p-4 border-t border-zinc-900">
-                <div className="bg-zinc-900/50 rounded-lg p-3 text-xs text-zinc-500 text-center">
+                <button
+                    onClick={() => setActiveView("settings")}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${activeView === "settings"
+                        ? "bg-indigo-600/10 text-indigo-400 shadow-lg shadow-indigo-900/20 ring-1 ring-indigo-500/20"
+                        : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
+                        }`}
+                >
+                    <Settings className={`w-5 h-5 transition-transform ${activeView === "settings" ? "rotate-90 text-indigo-400" : "group-hover:rotate-90"}`} />
+                    <span className="font-medium hidden md:block">Settings</span>
+                </button>
+                <div className="mt-4 bg-zinc-900/50 rounded-lg p-3 text-xs text-zinc-500 text-center">
                     <span className="hidden md:inline">Alpha Build v0.1</span>
                     <span className="md:hidden">v0.1</span>
                 </div>

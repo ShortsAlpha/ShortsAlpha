@@ -20,7 +20,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
             {/* Selection Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl">
 
-                {/* Option 1: Remix Existing */}
+                {/* Option 1: Create From Zero */}
                 <button
                     onClick={() => onSelectMode('remix')}
                     className="group relative flex flex-col items-start p-8 h-80 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-indigo-500/50 hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left"
@@ -33,10 +33,10 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                     <div className="relative z-10 space-y-2">
                         <h2 className="text-3xl font-bold text-white group-hover:text-indigo-300 transition-colors">
-                            Remix Clip
+                            Create from Zero
                         </h2>
                         <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-sm">
-                            Upload an existing video file. Add visualizations, subtitles, and AI-enhanced edits instantly.
+                            Start a fresh project. Upload your own assets and edit manually on the timeline.
                         </p>
                     </div>
 
@@ -45,7 +45,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
                     </div>
                 </button>
 
-                {/* Option 2: Create New */}
+                {/* Option 2: Create Reddit Story */}
                 <button
                     onClick={() => onSelectMode('create')}
                     className="group relative flex flex-col items-start p-8 h-80 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-emerald-500/50 hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left"
@@ -53,15 +53,15 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                     <div className="p-4 bg-zinc-800/50 rounded-2xl mb-6 group-hover:scale-110 group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-all duration-300">
-                        <Wand2 className="w-8 h-8 text-zinc-300 group-hover:text-emerald-400" />
+                        <Sparkles className="w-8 h-8 text-zinc-300 group-hover:text-emerald-400" />
                     </div>
 
                     <div className="relative z-10 space-y-2">
                         <h2 className="text-3xl font-bold text-white group-hover:text-emerald-300 transition-colors">
-                            Create New
+                            Create Reddit Story
                         </h2>
                         <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-sm">
-                            Start from scratch. Generate viral stories from Reddit, AI prompts, or custom text.
+                            Generate viral stories automatically from Reddit posts, AI prompts, or custom text.
                         </p>
                     </div>
 

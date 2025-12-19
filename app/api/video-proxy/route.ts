@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { s3Client, BUCKET_NAME } from '@/lib/s3Client';
 import { GetObjectCommand } from "@aws-sdk/client-s3";
@@ -6,10 +7,23 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
-    const key = searchParams.get('key');
+    const urlParam = searchParams.get('url');
+    let key = searchParams.get('key');
+
+    if (urlParam) {
+        try {
+            // Extract key from URL
+            // Example: https://pub-xxx.r2.dev/static/previews/puck.mp3 -> static/previews/puck.mp3
+            const urlObj = new URL(urlParam);
+            // Remove leading slash
+            key = urlObj.pathname.startsWith('/') ? urlObj.pathname.substring(1) : urlObj.pathname;
+        } catch (e) {
+            console.error("Failed to parse URL param", e);
+        }
+    }
 
     if (!key) {
-        return NextResponse.json({ error: 'Key is required' }, { status: 400 });
+        return NextResponse.json({ error: 'Key or URL is required' }, { status: 400 });
     }
 
     try {
@@ -31,9 +45,12 @@ export async function GET(request: NextRequest) {
         // Convert the stream to a Web Stream for NextResponse
         const stream = response.Body as any;
 
-        // Pass specific headers for video playback
+        // Dynamically get content type from S3 response
+        const contentType = response.ContentType || 'application/octet-stream';
+
+        // Pass specific headers
         const headers = new Headers();
-        headers.set('Content-Type', 'video/mp4');
+        headers.set('Content-Type', contentType);
         headers.set('Access-Control-Allow-Origin', '*');
 
         if (isDownload) {
@@ -42,7 +59,7 @@ export async function GET(request: NextRequest) {
             headers.set('Cache-Control', 'public, max-age=3600');
             return new NextResponse(stream, { status: 200, headers });
         } else {
-            headers.set('Content-Disposition', 'inline; filename="export.mp4"');
+            headers.set('Content-Disposition', 'inline'); // removed hardcoded filename
             headers.set('Cache-Control', 'public, max-age=3600');
 
             // Handle Range Response
@@ -60,6 +77,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error("Proxy Error:", error);
-        return NextResponse.json({ error: 'Failed to fetch video', details: String(error) }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to fetch media', details: String(error) }, { status: 500 });
     }
 }

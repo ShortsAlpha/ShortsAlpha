@@ -39,8 +39,7 @@ export async function POST(request: NextRequest) {
         }, {
             timeout: 120000, // 120s timeout
             maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-            httpsAgent: new https.Agent({ keepAlive: true })
+            maxContentLength: Infinity
         });
 
         return NextResponse.json(response.data);

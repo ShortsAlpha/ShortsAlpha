@@ -3,7 +3,7 @@ import { Gamepad2, Video, Search, Upload, Music, Plus, Image as ImageIcon, Folde
 import axios from "axios";
 
 interface AssetPanelProps {
-    onSelectBackground: (url: string) => void;
+    onSelectBackground: (url: string, mediaType?: 'video' | 'audio') => void;
     currentBackground: string | null;
     onAssetUploaded?: (key: string) => void;
 
@@ -45,7 +45,7 @@ export function AssetPanel({
     // Split state: User Assets vs Stock (Static)
     // const [userAssets, setUserAssets] = useState<any[]>([]); // MOVED TO PROPS
     const [stockAssets, setStockAssets] = useState<any[]>([]); // Fetched from API
-    const [stockTab, setStockTab] = useState<'visual' | 'audio'>('visual');
+    const [stockTab, setStockTab] = useState<'visual' | 'sfx' | 'music'>('visual');
     const [customName, setCustomName] = useState("");
 
     const [isUploading, setIsUploading] = useState(false);
@@ -111,7 +111,13 @@ export function AssetPanel({
 
         setIsUploading(true);
         try {
-            const folder = isStock ? "stock" : "uploads";
+            let folder = isStock ? "stock" : "uploads";
+
+            // Subfolder logic for Stock
+            if (isStock) {
+                if (stockTab === 'sfx') folder = "stock/sfx";
+                else if (stockTab === 'music') folder = "stock/music";
+            }
 
             // Allow Custom Filename for stock (to be neat in R2)
             const extension = file.name.split('.').pop();
@@ -134,7 +140,7 @@ export function AssetPanel({
             // Force type based on tab if stock
             let finalType = isAudio ? 'audio' : 'video';
             if (isStock) {
-                finalType = stockTab === 'audio' ? 'audio' : 'video';
+                finalType = stockTab === 'visual' ? 'video' : 'audio';
             }
 
             const newAsset = {
@@ -186,7 +192,7 @@ export function AssetPanel({
                 {items.map((vid) => (
                     <button
                         key={vid.id}
-                        onClick={() => onSelectBackground(vid.url)}
+                        onClick={() => onSelectBackground(vid.url, vid.type as 'video' | 'audio')}
                         // Touch / Long Press Logic
                         onTouchStart={(e) => handleTouchStart(vid, e)}
                         onTouchEnd={handleTouchEnd}
@@ -197,10 +203,58 @@ export function AssetPanel({
                             : "border-transparent hover:border-zinc-700"
                             }`}
                     >
-                        <div className="absolute inset-0 bg-zinc-800 group-hover:bg-zinc-700 transition-colors" />
+                        {vid.type === 'audio' ? (
+                            <div
+                                className="absolute inset-0 transition-colors duration-300"
+                                style={{
+                                    background: `linear-gradient(135deg, hsl(${((vid.id || vid.url || 'default').split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0) * 137) % 360}, 70%, 25%) 0%, #18181b 100%)`
+                                }}
+                            />
+                        ) : (
+                            <div className="absolute inset-0 bg-zinc-800 group-hover:bg-zinc-700 transition-colors" />
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center">
                             {vid.type === 'audio' ? (
-                                <Music className="w-8 h-8 text-zinc-500 group-hover:text-indigo-400" />
+                                <>
+                                    {/* Waveform Decoration */}
+                                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at center, white 1px, transparent 1px)', backgroundSize: '12px 12px' }}></div>
+                                    <Music className="w-10 h-10 text-white/50 group-hover:text-white/80 opacity-100 group-hover:opacity-0 transition-all duration-300 scale-100 group-hover:scale-90" />
+
+                                    {/* Audio Preview */}
+                                    <audio
+                                        src={vid.url}
+                                        preload="none"
+                                        className="hidden"
+                                    />
+                                    {/* Trigger Layer */}
+                                    <div
+                                        className="absolute inset-0 z-10"
+                                        onMouseEnter={(e) => {
+                                            const parent = e.currentTarget.parentElement;
+                                            const audio = parent?.querySelector('audio');
+                                            if (audio) {
+                                                audio.volume = 0.5;
+                                                audio.currentTime = 0;
+                                                audio.play().catch(() => { });
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            const parent = e.currentTarget.parentElement;
+                                            const audio = parent?.querySelector('audio');
+                                            if (audio) {
+                                                audio.pause();
+                                                audio.currentTime = 0;
+                                            }
+                                        }}
+                                    />
+
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                                            {/* Play Icon Triangle */}
+                                            <div className="w-0 h-0 border-t-[6px] border-t-transparent border-l-[10px] border-l-white border-b-[6px] border-b-transparent ml-1" />
+                                        </div>
+                                    </div>
+                                </>
                             ) : (
                                 <>
                                     <video
@@ -264,13 +318,28 @@ export function AssetPanel({
                                 onClick={() => setStockTab('visual')}
                                 className={`flex-1 py-1 text-[10px] font-bold uppercase rounded transition-colors ${stockTab === 'visual' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
                             >
-                                Visuals (Görsel)
+                                <div className="flex items-center justify-center gap-2">
+                                    <Video className="w-3 h-3" />
+                                    <span>Visuals</span>
+                                </div>
                             </button>
                             <button
-                                onClick={() => setStockTab('audio')}
-                                className={`flex-1 py-1 text-[10px] font-bold uppercase rounded transition-colors ${stockTab === 'audio' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+                                onClick={() => setStockTab('sfx')}
+                                className={`flex-1 py-1 text-[10px] font-bold uppercase rounded transition-colors ${stockTab === 'sfx' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
                             >
-                                SFX (Ses)
+                                <div className="flex items-center justify-center gap-2">
+                                    <Music className="w-3 h-3" />
+                                    <span>SFX</span>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setStockTab('music')}
+                                className={`flex-1 py-1 text-[10px] font-bold uppercase rounded transition-colors ${stockTab === 'music' ? 'bg-zinc-700 text-white shadow' : 'text-zinc-500 hover:text-zinc-400'}`}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <Music className="w-3 h-3" />
+                                    <span>Music</span>
+                                </div>
                             </button>
                         </div>
 
@@ -318,18 +387,34 @@ export function AssetPanel({
                     </div>
                 )}
 
-                {activeTab === 'library' && (
-                    <div>
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase mb-3 flex items-center gap-2">
-                            <Gamepad2 className="w-3 h-3" />
-                            {stockTab === 'visual' ? 'Stock Visuals' : 'Sound Effects'}
-                        </h3>
-                        {renderGrid(
-                            stockAssets.filter(a => stockTab === 'visual' ? a.type === 'video' : a.type === 'audio'),
-                            "No stock items found."
-                        )}
-                    </div>
-                )}
+                {activeTab === 'library' && (() => {
+                    // Filter Logic
+                    let items = stockAssets;
+                    const searchLower = search.toLowerCase();
+                    if (searchLower) items = items.filter(i => i.title?.toLowerCase().includes(searchLower));
+
+                    if (stockTab === 'visual') {
+                        items = items.filter(i => i.type === 'video');
+                    } else if (stockTab === 'sfx') {
+                        // SFX: 'stock/sfx' folder OR legacy (audio not in music folder)
+                        items = items.filter(i => i.type === 'audio' && (i.id.includes('stock/sfx') || !i.id.includes('stock/music')));
+                    } else if (stockTab === 'music') {
+                        // Music: ONLY 'stock/music' folder
+                        items = items.filter(i => i.id.includes('stock/music'));
+                    }
+
+                    const headerTitle = stockTab === 'visual' ? 'Stock Visuals' : (stockTab === 'music' ? 'Stock Music' : 'Sound Effects');
+
+                    return (
+                        <div>
+                            <h3 className="text-xs font-bold text-zinc-500 uppercase mb-3 flex items-center gap-2">
+                                {stockTab === 'visual' ? <Video className="w-3 h-3" /> : <Music className="w-3 h-3" />}
+                                {headerTitle}
+                            </h3>
+                            {renderGrid(items, stockTab === 'visual' ? "No stock videos found" : "No stock audio found")}
+                        </div>
+                    );
+                })()}
             </div>
         </div>
     );

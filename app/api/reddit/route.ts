@@ -1,0 +1,49 @@
+
+import { NextRequest, NextResponse } from "next/server";
+import axios from "axios";
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const subreddit = searchParams.get("subreddit") || "AskReddit";
+        const listing = searchParams.get("listing") || "top"; // top, hot, new
+        const limit = searchParams.get("limit") || "10";
+        const time = searchParams.get("time") || "day"; // hour, day, week, month, year, all
+
+        if (!subreddit.match(/^[a-zA-Z0-9_]+$/)) {
+            return NextResponse.json({ error: "Invalid subreddit name" }, { status: 400 });
+        }
+
+        const targetUrl = `https://www.reddit.com/r/${subreddit}/${listing}.json?limit=${limit}&t=${time}`;
+        console.log(`[Reddit API] Fetching: ${targetUrl}`);
+
+        const response = await axios.get(targetUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+
+        const posts = response.data?.data?.children?.map((child: any) => {
+            const data = child.data;
+            return {
+                id: data.id,
+                title: data.title,
+                selftext: data.selftext,
+                author: data.author,
+                score: data.score,
+                url: data.url,
+                num_comments: data.num_comments,
+                thumbnail: data.thumbnail,
+                permalink: `https://reddit.com${data.permalink}`
+            };
+        }) || [];
+
+        return NextResponse.json({ posts });
+
+    } catch (error: any) {
+        console.error("Reddit API Error:", error.message);
+        return NextResponse.json({ error: "Failed to fetch from Reddit" }, { status: 500 });
+    }
+}
