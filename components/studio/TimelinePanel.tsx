@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward, Scissors, Layers, Volume2, Type, Eye, EyeOff, VolumeX, Trash2, MousePointer2, RotateCcw, RotateCw } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Scissors, Layers, Volume2, Type, Eye, EyeOff, VolumeX, Trash2, MousePointer2, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 
 interface TimelinePanelProps {
@@ -42,6 +42,8 @@ const getMediaDuration = (url: string, type: 'video' | 'audio' | 'text'): Promis
     });
 };
 
+import { extractAudioPeaks } from "@/utils/audioAnalyzer"; // NEW
+
 export function TimelinePanel({
     script,
     videoTracks,
@@ -53,8 +55,8 @@ export function TimelinePanel({
     onTogglePlay,
     onUpdateVideoTracks,
     onUpdateAudioTracks,
-    onUpdateTextTracks, // NEW
-    textTracks = [], // NEW
+    onUpdateTextTracks,
+    textTracks = [],
     selectedClipId,
     onSelectClip,
     videoTrackState = {},
@@ -68,14 +70,46 @@ export function TimelinePanel({
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const headerContainerRef = useRef<HTMLDivElement>(null);
 
+    // Audio Analysis State
+    // Audio Analysis State
+    // Map of URL -> Peak Data (Because multiple clips can share same source)
+    const [audioPeaks, setAudioPeaks] = useState<Record<string, number[]>>({});
+    // Track in-progress analysis to prevent duplicate calls
+    const analyzingUrls = useRef<Set<string>>(new Set());
+
+    // Effect: Analyze new audio tracks
+    useEffect(() => {
+        audioTracks.forEach(async (track) => {
+            // Only analyze if not already done AND not currently processing
+            // Use track.url as KEY
+            if (track.url && !audioPeaks[track.url] && !analyzingUrls.current.has(track.url)) {
+                analyzingUrls.current.add(track.url);
+
+                try {
+                    // Extract with HIGH RESOLUTION (500)
+                    const peaks = await extractAudioPeaks(track.url, 500);
+                    setAudioPeaks(prev => ({
+                        ...prev,
+                        [track.url]: peaks
+                    }));
+                } catch (err) {
+                    console.error("Analysis error for track", track.id, err);
+                    analyzingUrls.current.delete(track.url);
+                }
+            }
+        });
+    }, [audioTracks]);
+
     // DEBUG LOGGER
     const [logs, setLogs] = useState<string[]>([]);
     const addLog = (msg: string) => setLogs(prev => [msg, ...prev].slice(0, 5));
 
-    // Zoom / Pixel Ratio (Zoomed Out)
-    const PIXELS_PER_SECOND = 20;
+    // Zoom State
+    const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
+    const PIXELS_PER_SECOND = pixelsPerSecond; // Alias for compatibility
+
     // visualWidth: Render 'infinite' length (e.g. 1 hour or dynamic)
-    const visualDuration = Math.max(duration + 300, 600); // Always show at least 10 mins or duration + 5 mins
+    const visualDuration = Math.max(duration + 300, 600);
     const timelineWidth = visualDuration * PIXELS_PER_SECOND;
 
     // Drag & Drop State
@@ -961,7 +995,34 @@ export function TimelinePanel({
                 </div>
 
                 <div className="flex items-center gap-3 text-xs font-mono text-zinc-500">
-                    <span>{new Date(currentTime * 1000).toISOString().substr(14, 5)}</span>
+                    {/* Zoom Controls */}
+                    <div className="flex items-center gap-2 mr-4 border-r border-[#333] pr-4">
+                        <button
+                            onClick={() => setPixelsPerSecond(prev => Math.max(5, prev - 5))}
+                            className="p-1 hover:text-white hover:bg-white/10 rounded"
+                            title="Zoom Out"
+                        >
+                            <ZoomOut className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                            type="range"
+                            min="5"
+                            max="100"
+                            value={pixelsPerSecond}
+                            onChange={(e) => setPixelsPerSecond(Number(e.target.value))}
+                            className="w-20 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            title="Zoom Level"
+                        />
+                        <button
+                            onClick={() => setPixelsPerSecond(prev => Math.min(100, prev + 5))}
+                            className="p-1 hover:text-white hover:bg-white/10 rounded"
+                            title="Zoom In"
+                        >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+
+                    <span className="w-[40px] text-right">{new Date(currentTime * 1000).toISOString().substr(14, 5)}</span>
                     <span className="text-zinc-700">/</span>
                     <span>
                         {new Date(Math.max(0, ...videoTracks.map(t => t.start + t.duration), ...audioTracks.map(t => t.start + t.duration)) * 1000).toISOString().substr(14, 5)}
@@ -1142,7 +1203,7 @@ export function TimelinePanel({
                             {/* Old Ruler Removed */}
 
                             {/* Tracks Content */}
-                            <div className="p-4 pt-4 space-y-4 flex-1">
+                            <div className="py-4 space-y-4 flex-1">
 
                                 {/* Text Tracks */}
                                 {textTracks.length > 0 && (
@@ -1346,7 +1407,6 @@ export function TimelinePanel({
                                     ))}
                                 </div>
 
-                                {/* Audio Tracks */}
                                 <div className="flex flex-col gap-1 pt-4 border-t border-[#333]">
                                     {audioLayers.map(trackIdx => (
                                         <div
@@ -1371,6 +1431,10 @@ export function TimelinePanel({
                                             )}
 
                                             {audioTracks.filter(t => (t.trackIndex || 0) === trackIdx).map((clip) => {
+                                                // AUDIO WAVEFORM LOGIC - LOCKED TAPE APPROACH
+                                                const masterPeaks = (clip.url && audioPeaks[clip.url]) ? audioPeaks[clip.url] : (audioPeaks[clip.id] || []);
+                                                const sourceDuration = (clip as any).sourceDuration || (clip.duration + (clip.offset || 0));
+
                                                 return (
                                                     <div
                                                         key={clip.id}
@@ -1398,10 +1462,10 @@ export function TimelinePanel({
                                                             }
                                                         }}
                                                         className={`absolute top-px bottom-px rounded-sm bg-[#3b4d80] border border-[#5b6da0] overflow-hidden z-10 select-none group touch-pan-y
-                                                    ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
-                                                    ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
-                                                        ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
-                                                        `}
+                                                ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
+                                                ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
+                                                    ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
+                                                    `}
                                                         style={{
                                                             left: `${clip.start * PIXELS_PER_SECOND}px`,
                                                             width: `${clip.duration * PIXELS_PER_SECOND}px`,
@@ -1411,8 +1475,8 @@ export function TimelinePanel({
                                                         {/* Left Handle - Touch Friendly */}
                                                         <div
                                                             className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
-                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
+                                                        ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                    `}
                                                             onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                             onTouchStart={(e) => {
                                                                 e.preventDefault();
@@ -1422,21 +1486,46 @@ export function TimelinePanel({
                                                             <div className="w-2 h-6 bg-white rounded shadow-lg border border-black/20" />
                                                         </div>
 
-                                                        {/* Waveform Mock - Static & Angular */}
-                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 flex items-end opacity-30 px-1 pointer-events-none gap-0.5">
-                                                            {Array.from({ length: 20 }).map((_, i) => (
-                                                                <div key={i} className="flex-1 bg-indigo-200" style={{ height: `${30 + ((i % 3) * 20)}%` }} />
-                                                            ))}
+                                                        {/* REAL DYNAMIC WAVEFORM */}
+                                                        {/* LOCKED DYNAMIC WAVEFORM */}
+                                                        <div
+                                                            className="absolute bottom-0 flex items-end opacity-90 pointer-events-none"
+                                                            style={{
+                                                                width: `${sourceDuration * PIXELS_PER_SECOND}px`,
+                                                                left: `-${(clip.offset || 0) * PIXELS_PER_SECOND}px`,
+                                                                height: '70%',
+                                                                paddingLeft: '2px',
+                                                            }}
+                                                        >
+                                                            {masterPeaks.length > 0 ? (
+                                                                masterPeaks.map((peak, i) => (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="flex-1 bg-indigo-500 rounded-t-[1px]"
+                                                                        style={{
+                                                                            height: `${Math.max(10, peak * 100)}%`,
+                                                                            opacity: peak < 0.01 ? 0.3 : 1 // Show quiet sounds as semi-transparent instead of hidden
+                                                                        }}
+                                                                    />
+                                                                ))
+                                                            ) : (
+                                                                Array.from({ length: 50 }).map((_, i) => (
+                                                                    <div key={i} className="flex-1 bg-indigo-200/20 h-1/2" />
+                                                                ))
+                                                            )}
                                                         </div>
+
                                                         <div className="relative px-2 h-full flex items-start pt-1 pointer-events-none">
-                                                            <span className="text-[9px] font-medium text-indigo-100 truncate shadow-black drop-shadow-md">Audio {trackIdx}</span>
+                                                            <span className="text-[9px] font-medium text-indigo-100 truncate shadow-black drop-shadow-md">
+                                                                {clip.title || `Audio ${trackIdx}`}
+                                                            </span>
                                                         </div>
 
                                                         {/* Right Handle - Touch Friendly */}
                                                         <div
                                                             className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
-                                                            ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
+                                                        ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
+                                                    `}
                                                             onMouseDown={(e) => handleResizeStart(e, clip.id, 'audio', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                             onTouchStart={(e) => {
                                                                 e.preventDefault(); // Stop bubbling immediately

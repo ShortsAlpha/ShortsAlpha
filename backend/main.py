@@ -781,7 +781,7 @@ def cleanup_old_files():
 
         deleted_count = 0
         now = datetime.utcnow()
-        retention_period = timedelta(hours=5) # Changed from 24h to 5h as requested
+        retention_period = timedelta(hours=24) 
 
         for page in page_iterator:
             if 'Contents' not in page:
@@ -799,12 +799,11 @@ def cleanup_old_files():
                 # Check age
                 age = now - last_modified
                 if age > retention_period:
-                    # Check if it is a render output or related
-                    # We accept .mp4 in root or processed/
-                    if key.endswith(".mp4") or "processed/" in key or "export_" in key:
-                        print(f"Deleting old file: {key} (Age: {age})")
-                        s3.delete_object(Bucket=bucket, Key=key)
-                        deleted_count += 1
+                    # Broader Cleanup: Delete everything old that isn't stock
+                    # This includes uploads/, outputs/, status json files, etc.
+                    print(f"Deleting old file: {key} (Age: {age})")
+                    s3.delete_object(Bucket=bucket, Key=key)
+                    deleted_count += 1
 
         print(f"Cleanup complete. Deleted {deleted_count} files.")
         

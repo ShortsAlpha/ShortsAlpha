@@ -53,7 +53,7 @@ export function PlayerPanel({
             const el = videoRefs.current[clip.id];
             if (el) {
                 // Time Sync
-                const localTime = Math.max(0, currentTime - clip.start);
+                const localTime = Math.max(0, currentTime - clip.start + (clip.offset || 0));
                 if (Math.abs(el.currentTime - localTime) > 0.5) {
                     el.currentTime = localTime;
                 }
@@ -80,7 +80,7 @@ export function PlayerPanel({
                 const endTime = track.start + duration;
 
                 if (currentTime >= track.start && currentTime < endTime) {
-                    const localTime = Math.max(0, currentTime - track.start);
+                    const localTime = Math.max(0, currentTime - track.start + (track.offset || 0));
                     // Only sync if drift is significant to avoid stutter
                     if (Math.abs(el.currentTime - localTime) > 0.5) {
                         // console.log(`[Audio Sync] Adjusting Time ${track.id}: ${el.currentTime} -> ${localTime}`);
