@@ -1,4 +1,21 @@
 
+// Helper to generate smooth text outlines using text-shadow (avoids blocky WebkitTextStroke)
+export function generateSmoothStroke(width: number, color: string) {
+    if (width <= 0) return 'none';
+    const layers = [];
+    const steps = 16; // 16 angles for smoothness
+    // Create multiple rings for thickness
+    for (let r = 1; r <= width; r++) {
+        for (let i = 0; i < steps; i++) {
+            const angle = (i * 2 * Math.PI) / steps;
+            const x = Math.round(Math.cos(angle) * r * 10) / 10;
+            const y = Math.round(Math.sin(angle) * r * 10) / 10;
+            layers.push(`${x}px ${y}px 0 ${color}`);
+        }
+    }
+    return layers.join(', ');
+}
+
 export const FONT_FAMILIES = [
     { name: 'Inter', value: 'Inter' },
     { name: 'Roboto', value: 'Roboto' },
@@ -13,126 +30,171 @@ export const FONT_FAMILIES = [
 ];
 
 export const SUBTITLE_PRESETS = [
+    // --- STROKED & SHADOWED (The "Viral" Look) ---
     {
-        id: 'classic-white',
-        name: 'Classic',
+        id: 'capcut-yellow',
+        name: 'Viral Yellow',
+        style: {
+            color: '#FFD700', // Gold/Yellow
+            fontSize: 48,
+            fontWeight: '900',
+            stroke: '#000000',
+            strokeWidth: 6,
+            shadow: '4px 4px 0px rgba(0,0,0,1)', // Hard black shadow
+            backgroundColor: 'transparent',
+            fontFamily: 'Montserrat',
+            textTransform: 'uppercase'
+        },
+        previewBg: '#1e1e1e'
+    },
+    {
+        id: 'capcut-white',
+        name: 'Classic White',
+        style: {
+            color: '#FFFFFF',
+            fontSize: 48,
+            fontWeight: '900',
+            stroke: '#000000',
+            strokeWidth: 6,
+            shadow: '4px 4px 0px rgba(0,0,0,0.8)',
+            backgroundColor: 'transparent',
+            fontFamily: 'Montserrat',
+            textTransform: 'uppercase'
+        },
+        previewBg: '#555'
+    },
+    {
+        id: 'capcut-black',
+        name: 'Bold Black',
+        style: {
+            color: '#000000',
+            fontSize: 48,
+            fontWeight: '900',
+            stroke: '#FFFFFF',
+            strokeWidth: 6,
+            shadow: '4px 4px 0px rgba(255,255,255,0.4)',
+            backgroundColor: 'transparent',
+            fontFamily: 'Montserrat',
+            textTransform: 'uppercase'
+        },
+        previewBg: '#333'
+    },
+    {
+        id: 'capcut-red',
+        name: 'Impact Red',
+        style: {
+            color: '#EF4444', // Red-500
+            fontSize: 52,
+            fontWeight: '900',
+            stroke: '#FFFFFF',
+            strokeWidth: 6,
+            shadow: '3px 3px 0px #000000',
+            backgroundColor: 'transparent',
+            fontFamily: 'Anton',
+            textTransform: 'uppercase'
+        },
+        previewBg: '#111'
+    },
+    {
+        id: 'capcut-blue',
+        name: 'Electric Blue',
+        style: {
+            color: '#3B82F6', // Blue-500
+            fontSize: 48,
+            fontWeight: '900',
+            stroke: '#FFFFFF',
+            strokeWidth: 6,
+            shadow: '3px 3px 0px #000000',
+            backgroundColor: 'transparent',
+            fontFamily: 'montserrat',
+            textTransform: 'uppercase'
+        },
+        previewBg: '#111'
+    },
+    {
+        id: 'capcut-green',
+        name: 'Money Green',
+        style: {
+            color: '#22C55E', // Green-500
+            fontSize: 48,
+            fontWeight: '900',
+            stroke: '#000000',
+            strokeWidth: 6,
+            shadow: '0px 0px 20px rgba(34, 197, 94, 0.6)', // Glowish
+            backgroundColor: 'transparent',
+            fontFamily: 'Montserrat',
+            textTransform: 'uppercase'
+        },
+        previewBg: '#111'
+    },
+
+    // --- BOXED STYLES ---
+    {
+        id: 'box-black-bg',
+        name: 'Black Box',
         style: {
             color: '#FFFFFF',
             fontSize: 32,
-            fontWeight: '800', // Extra Bold
-            stroke: '#000000',
-            strokeWidth: 4, // Thicker stroke (Hormozi standard)
-            shadow: '2px 2px 0px #000000', // Sharp shadow
-            backgroundColor: 'transparent',
-            fontFamily: 'Montserrat'
-        },
-        previewBg: '#333'
-    },
-    {
-        id: 'hormozi-yellow',
-        name: 'Hormozi',
-        style: {
-            color: '#FFD700',
-            fontSize: 36,
-            fontWeight: '900',
-            stroke: '#000000',
-            strokeWidth: 4,
-            shadow: '4px 4px 0px #000000', // Hard drop shadow
-            backgroundColor: 'transparent',
-            fontFamily: 'Anton'
-        },
-        previewBg: '#333'
-    },
-    {
-        id: 'clean-black',
-        name: 'Clean',
-        style: {
-            color: '#000000',
-            fontSize: 30,
-            fontWeight: '800',
-            stroke: '#FFFFFF',
-            strokeWidth: 3,
-            shadow: 'none',
-            backgroundColor: 'transparent',
-            fontFamily: 'Roboto'
-        },
-        previewBg: '#888'
-    },
-    {
-        id: 'neon-green',
-        name: 'Neon',
-        style: {
-            color: '#00FF00',
-            fontSize: 28,
-            fontWeight: 'bold',
-            stroke: 'none',
-            strokeWidth: 0,
-            shadow: '0 0 8px #00FF00, 0 0 16px #00FF00', // Stronger glow
-            backgroundColor: 'transparent',
-            fontFamily: 'Montserrat'
-        },
-        previewBg: '#111'
-    },
-    {
-        id: 'red-alert',
-        name: 'Alert',
-        style: {
-            color: '#FF0000',
-            fontSize: 36,
-            fontWeight: '900',
-            stroke: '#FFFFFF',
-            strokeWidth: 3,
-            shadow: '4px 4px 0px #000000',
-            backgroundColor: 'transparent',
-            fontFamily: 'Bebas Neue'
-        },
-        previewBg: '#111'
-    },
-    {
-        id: 'box-black',
-        name: 'Boxed',
-        style: {
-            color: '#FFFFFF',
-            fontSize: 24,
-            fontWeight: '600',
+            fontWeight: '700',
             stroke: 'none',
             strokeWidth: 0,
             shadow: 'none',
             backgroundColor: '#000000',
             borderRadius: '8px',
-            padding: '8px 16px',
-            fontFamily: 'Inter'
+            padding: '8px 16px', // Renderer logic might need to support padding if possible, or we rely on font spacing
+            fontFamily: 'Roboto',
+            textTransform: 'none'
         },
         previewBg: '#888'
     },
     {
-        id: 'karaoke-blue',
-        name: 'Karaoke',
+        id: 'box-white-bg',
+        name: 'White Box',
         style: {
-            color: '#00FFFF',
-            fontSize: 30,
-            fontWeight: 'bold',
-            stroke: '#000080',
-            strokeWidth: 3,
-            shadow: '3px 3px 0px #000080',
-            backgroundColor: 'transparent',
-            fontFamily: 'Poppins'
+            color: '#000000',
+            fontSize: 32,
+            fontWeight: '700',
+            stroke: 'none',
+            strokeWidth: 0,
+            shadow: 'none',
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            fontFamily: 'Roboto',
+            textTransform: 'none'
+        },
+        previewBg: '#333'
+    },
+    {
+        id: 'box-purple-bg',
+        name: 'Vibe Box',
+        style: {
+            color: '#FFFFFF',
+            fontSize: 36,
+            fontWeight: '800',
+            stroke: 'none',
+            strokeWidth: 0,
+            shadow: '4px 4px 0px rgba(0,0,0,0.4)',
+            backgroundColor: '#8B5CF6', // Violet-500
+            borderRadius: '12px',
+            fontFamily: 'Poppins',
+            textTransform: 'uppercase'
         },
         previewBg: '#111'
     },
     {
-        id: 'minimal-grey',
-        name: 'Minimal',
+        id: 'neon-glow-cyan',
+        name: 'Neon Cyan',
         style: {
-            color: '#F0F0F0',
-            fontSize: 24,
-            fontWeight: '500',
-            stroke: 'none',
-            strokeWidth: 0,
-            shadow: '0px 1px 2px rgba(0,0,0,0.5)',
+            color: '#06b6d4', // Cyan-500
+            fontSize: 48,
+            fontWeight: 'bold',
+            stroke: '#FFFFFF',
+            strokeWidth: 2,
+            shadow: '0 0 15px #06b6d4',
             backgroundColor: 'transparent',
-            fontFamily: 'Raleway'
+            fontFamily: 'Oswald',
+            textTransform: 'uppercase'
         },
-        previewBg: '#333'
-    }
+        previewBg: '#000'
+    },
 ];

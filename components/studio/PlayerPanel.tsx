@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Maximize2 } from "lucide-react";
+import { generateSmoothStroke } from "./constants";
 
 interface PlayerPanelProps {
     script: any[];
@@ -280,6 +281,11 @@ export function PlayerPanel({
                 const y = (style.y ?? 0.8) * 100;
                 const isSelected = clip.id === selectedClipId;
 
+                // Generate smooth stroke using shadow hack
+                const strokeShadow = style.strokeWidth ? generateSmoothStroke(style.strokeWidth, style.stroke) : '';
+                const dropShadow = style.shadow && style.shadow !== 'none' ? style.shadow : '';
+                const combinedShadow = [strokeShadow, dropShadow].filter(Boolean).join(', ') || 'none';
+
                 return (
                     <div
                         key={clip.id}
@@ -298,8 +304,7 @@ export function PlayerPanel({
                             fontStyle: style.fontStyle || 'normal',
                             textDecoration: style.textDecoration || 'none',
                             textTransform: style.textTransform || 'none',
-                            textShadow: style.shadow || '0 2px 4px rgba(0,0,0,0.8)',
-                            WebkitTextStroke: style.strokeWidth ? `${style.strokeWidth}px ${style.stroke}` : 'none',
+                            textShadow: combinedShadow,
                             backgroundColor: style.backgroundColor || 'transparent',
                             borderRadius: style.borderRadius || '0px',
                             padding: style.padding || '0px',
@@ -363,6 +368,6 @@ export function PlayerPanel({
                     );
                 })}
             </div>
-        </div>
+        </div >
     );
 }

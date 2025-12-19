@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Volume2, VolumeX, RotateCw, RefreshCcw, Monitor, Eraser, Wand2, Type, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
-import { FONT_FAMILIES, SUBTITLE_PRESETS } from "./constants";
+import { FONT_FAMILIES, SUBTITLE_PRESETS, generateSmoothStroke } from "./constants";
 
 interface PropertiesPanelProps {
     selectedClip: any;
@@ -254,33 +254,52 @@ export function PropertiesPanel({ selectedClip, onUpdateClip, onApplyToAll }: Pr
                                             <span>Presets</span>
                                         </div>
                                         <div className="grid grid-cols-4 gap-2">
-                                            {SUBTITLE_PRESETS.map(preset => (
-                                                <button
-                                                    key={preset.id}
-                                                    onClick={() => onUpdateClip(selectedClip.id, {
-                                                        style: {
-                                                            ...selectedClip.style,
-                                                            ...preset.style
-                                                        }
-                                                    })}
-                                                    className="aspect-square rounded border border-zinc-800 hover:border-zinc-600 transition-all flex items-center justify-center overflow-hidden relative group"
-                                                    style={{ background: preset.previewBg }}
-                                                    title={preset.name}
-                                                >
-                                                    <span
-                                                        className="text-lg font-bold select-none"
-                                                        style={{
-                                                            fontFamily: preset.style.fontFamily,
-                                                            color: preset.style.color,
-                                                            WebkitTextStroke: preset.style.strokeWidth ? `${preset.style.strokeWidth}px ${preset.style.stroke}` : 'none',
-                                                            textShadow: preset.style.shadow,
-                                                            fontWeight: preset.style.fontWeight as any,
-                                                        }}
+                                            {SUBTITLE_PRESETS.map(preset => {
+                                                // Scale down visual properties for the small preview button
+                                                const scale = 0.25;
+                                                const strokeW = (preset.style.strokeWidth || 0) * scale;
+
+                                                // Generate smooth stroke using shadow hack
+                                                const strokeShadow = strokeW > 0 ? generateSmoothStroke(strokeW, preset.style.stroke || '#000') : '';
+
+                                                // Scale shadow (naive replace of pixel values)
+                                                const dropShadow = preset.style.shadow && preset.style.shadow !== 'none'
+                                                    ? preset.style.shadow.replace(/(\d+)px/g, (match, p1) => `${parseFloat(p1) * scale}px`)
+                                                    : '';
+
+                                                const combinedShadow = [strokeShadow, dropShadow].filter(Boolean).join(', ') || 'none';
+
+                                                return (
+                                                    <button
+                                                        key={preset.id}
+                                                        onClick={() => onUpdateClip(selectedClip.id, {
+                                                            style: {
+                                                                ...selectedClip.style,
+                                                                ...preset.style
+                                                            }
+                                                        })}
+                                                        className="aspect-square rounded border border-zinc-800 hover:border-zinc-600 transition-all flex items-center justify-center overflow-hidden relative group"
+                                                        style={{ background: preset.previewBg }}
+                                                        title={preset.name}
                                                     >
-                                                        Aa
-                                                    </span>
-                                                </button>
-                                            ))}
+                                                        <span
+                                                            className="text-xl font-bold select-none"
+                                                            style={{
+                                                                fontFamily: preset.style.fontFamily,
+                                                                color: preset.style.color,
+                                                                textShadow: combinedShadow,
+                                                                fontWeight: preset.style.fontWeight as any,
+                                                                // Handle Box styles preview roughly
+                                                                backgroundColor: preset.style.backgroundColor !== 'transparent' ? preset.style.backgroundColor : undefined,
+                                                                padding: preset.style.backgroundColor !== 'transparent' ? '2px 6px' : '0',
+                                                                borderRadius: '2px',
+                                                            }}
+                                                        >
+                                                            Aa
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 

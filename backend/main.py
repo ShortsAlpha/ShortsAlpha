@@ -5,7 +5,7 @@ from pydantic import BaseModel
 # Modal Image Definition
 image = modal.Image.debian_slim() \
     .apt_install("ffmpeg", "imagemagick") \
-    .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy==1.0.3") \
+    .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy==1.0.3", "edge-tts") \
     .run_commands("sed -i 's/rights=\"none\" pattern=\"@\\*\"/rights=\"read|write\" pattern=\"@*\"/' /etc/ImageMagick-6/policy.xml")
 
 # Lightweight Image for Web Endpoints (Fast Cold Start)
@@ -21,6 +21,62 @@ class VideoRequest(BaseModel):
     r2_access_key_id: str
     r2_secret_access_key: str
     r2_bucket_name: str
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str
+    speed: float = 1.0
+    output_key: str
+    r2_account_id: str
+    r2_access_key_id: str
+    r2_secret_access_key: str
+    r2_bucket_name: str
+
+@app.function(image=image, timeout=600)
+@web_endpoint(method="POST")
+async def generate_speech(request: TTSRequest):
+    import edge_tts
+    import os
+    import boto3
+    import uuid
+    import traceback
+    
+    try:
+        print(f"Generating Speech: {request.text[:50]}... Voice: {request.voice} Speed: {request.speed}")
+        
+        # Calculate Rate string
+        rate_pct = int((request.speed - 1.0) * 100)
+        rate_str = f"{rate_pct:+d}%"
+        
+        output_filename = f"speech_{uuid.uuid4()}.mp3"
+        output_file = f"/tmp/{output_filename}"
+        
+        communicate = edge_tts.Communicate(request.text, request.voice, rate=rate_str)
+        await communicate.save(output_file)
+        
+        # Upload to R2
+        s3 = boto3.client('s3',
+            endpoint_url=f"https://{request.r2_account_id}.r2.cloudflarestorage.com",
+            aws_access_key_id=request.r2_access_key_id,
+            aws_secret_access_key=request.r2_secret_access_key
+        )
+        
+        print(f"Uploading to R2: {request.output_key}")
+        with open(output_file, "rb") as f:
+            s3.upload_fileobj(f, request.r2_bucket_name, request.output_key, ExtraArgs={'ContentType': 'audio/mpeg'})
+            
+        # Cleanup
+        if os.path.exists(output_file):
+            os.remove(output_file)
+            
+        return {"status": "success", "key": request.output_key}
+
+    except Exception as e:
+        print(f"TTS Error: {str(e)}")
+        traceback.print_exc()
+        # Return error as JSON with 500 status logic handled by client check
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Backend Error: {str(e)}")
 
 class RenderRequest(BaseModel):
     video_tracks: list
@@ -445,15 +501,16 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 duration = track.get('duration', 2)
                 style = track.get('style', {})
                 
-                # Extract Style
-                font_size = style.get('font_size', 50)
+                # Extract Style (Fixing Key Mismatch: Frontend sends camelCase)
+                font_size = style.get('fontSize', 60)
                 color = style.get('color', 'white')
-                font = 'Arial' # Default
+                font = style.get('fontFamily', 'Arial')
                 stroke_color = style.get('stroke', 'black')
-                stroke_width = style.get('stroke_width', 0)
-                bg_color = style.get('background_color', 'transparent')
+                stroke_width = style.get('strokeWidth', 0)
+                bg_color = style.get('backgroundColor', 'transparent')
                 
                 # Create Text Clip
+                # Note: 'size' parameter wraps text. 800px is good for mobile.
                 txt_clip = TextClip(
                     text, 
                     fontsize=font_size, 
@@ -461,13 +518,30 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                     font=font,
                     stroke_color=stroke_color if stroke_width > 0 else None,
                     stroke_width=stroke_width if stroke_width > 0 else 0,
+                    bg_color=bg_color if bg_color != 'transparent' else None,
                     method='caption', 
-                    size=(800, None)
+                    size=(900, None)
                 )
                 
                 txt_clip = txt_clip.set_start(start).set_duration(duration)
-                txt_clip = txt_clip.set_position(('center', 1500)) # Fixed position for now
                 
+                # Positioning Logic
+                # Frontend sends absolute pixels usually? Or relative? 
+                # Assuming 0,0 is center in some editors, but MoviePy 0,0 is top left.
+                # If pos_x/y are present, use them. Else center.
+                pos_x = track.get('positionX')
+                pos_y = track.get('positionY')
+                
+                if pos_x is not None and pos_y is not None:
+                     # If values are very small (<1), treat as relative
+                     if -1.0 <= pos_x <= 1.0 and -1.0 <= pos_y <= 1.0:
+                         txt_clip = txt_clip.set_position((pos_x, pos_y), relative=True)
+                     else:
+                         txt_clip = txt_clip.set_position((pos_x, pos_y))
+                else:
+                    # Default to true center as requested
+                    txt_clip = txt_clip.set_position(('center', 'center'))
+
                 clips_to_composite.append(txt_clip)
             except Exception as e:
                 print(f"Failed to render text track: {e}")

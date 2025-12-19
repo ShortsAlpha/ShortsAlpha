@@ -9,11 +9,11 @@ interface VoiceSelectorProps {
 }
 
 const VOICES = [
-    { id: "Puck", name: "Puck", gender: "Male", description: "Energetic & Youthful" },
-    { id: "Charon", name: "Charon", gender: "Male", description: "Deep & Authoritative" },
-    { id: "Kore", name: "Kore", gender: "Female", description: "Calm & Soothing" },
-    { id: "Fenrir", name: "Fenrir", gender: "Male", description: "Intense & Dramatic" },
-    { id: "Aoede", name: "Aoede", gender: "Female", description: "Bright & Cheerful" },
+    { id: "en-US-ChristopherNeural", name: "Christopher (US)", gender: "Male", description: "Deep & Narrative" },
+    { id: "en-US-AriaNeural", name: "Aria (US)", gender: "Female", description: "Clear & Professional" },
+    { id: "en-GB-SoniaNeural", name: "Sonia (UK)", gender: "Female", description: "British & Sophisticated" },
+    { id: "en-US-GuyNeural", name: "Guy (US)", gender: "Male", description: "Casual & Friendly" },
+    { id: "en-US-JennyNeural", name: "Jenny (US)", gender: "Female", description: "Warm & Conversational" },
 ];
 
 export function VoiceSelector({ onBack, onSelect }: VoiceSelectorProps) {
@@ -47,7 +47,7 @@ export function VoiceSelector({ onBack, onSelect }: VoiceSelectorProps) {
             console.log("Requesting preview for:", voice.name, "Speed:", speed);
             const res = await axios.post("/api/tts", {
                 text: "Hello! I can tell your story with this voice settings.",
-                voice: voice.name,
+                voice: voice.id,
                 speed: speed
             });
 
