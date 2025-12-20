@@ -473,8 +473,13 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
                     if (statusCheck.ok) {
                         const data = await statusCheck.json();
 
+                        const isFinished =
+                            data.status === 'finished' ||
+                            data.status === 'success' ||
+                            (data.percent === 100 && (data.message?.includes('Finalizing') || data.message?.includes('Success')));
+
                         // Check for explicit finished status (Robustness for iOS)
-                        if (data.status === 'finished' || data.status === 'success') {
+                        if (isFinished) {
                             const proxyVideoUrl = `/api/video-proxy?key=${outputKey}`;
                             setFinalDownloadUrl(proxyVideoUrl);
                             setExportStatus('finished');
@@ -510,13 +515,14 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
                 track_index: t.trackIndex || 0,
                 style: t.style ? {
                     color: t.style.color,
-                    font_size: (t.style.fontSize || 24) * 3, // Scale for 1080p (Assume preview is ~360px wide)
+                    font_size: (t.style.fontSize || 24) * 3.5, // Restored to 3.5 (User wants BIG text)
                     font_family: t.style.fontFamily,
                     font_weight: t.style.fontWeight,
                     stroke: t.style.stroke,
-                    stroke_width: t.style.strokeWidth,
+                    stroke_width: (t.style.strokeWidth || 0) * 6, // Thick borders
                     background_color: t.style.backgroundColor,
-                    shadow: t.style.shadow,
+                    text_transform: t.style.textTransform, // Pass text transform (uppercase)
+                    shadow: t.style.shadow, // Shadow parsing is complex, backend currently ignores it or needs update
                     x: t.style.x,
                     y: t.style.y
                 } : undefined

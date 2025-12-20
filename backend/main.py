@@ -1,12 +1,26 @@
 import modal
 from modal import web_endpoint
 from pydantic import BaseModel
+import os
 
 # Modal Image Definition
+# We use standard system fonts for image build, but EMBED custom fonts explicitly.
+# ORDER MATTERS: run_commands must happen BEFORE add_local_file
 image = modal.Image.debian_slim() \
-    .apt_install("ffmpeg", "imagemagick") \
+    .apt_install("ffmpeg", "imagemagick", "fonts-liberation", "fonts-dejavu", "fontconfig", "fonts-freefont-ttf", "fonts-roboto", "fonts-lato", "fonts-open-sans", "wget", "curl", "ca-certificates") \
     .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy==1.0.3", "edge-tts") \
-    .run_commands("sed -i 's/rights=\"none\" pattern=\"@\\*\"/rights=\"read|write\" pattern=\"@*\"/' /etc/ImageMagick-6/policy.xml")
+    .run_commands("sed -i 's/rights=\"none\" pattern=\"@\\*\"/rights=\"read|write\" pattern=\"@*\"/' /etc/ImageMagick-6/policy.xml") \
+    .add_local_file("backend/fonts/Anton-Regular.ttf", "/root/fonts/Anton-Regular.ttf") \
+    .add_local_file("backend/fonts/BebasNeue-Regular.ttf", "/root/fonts/BebasNeue-Regular.ttf") \
+    .add_local_file("backend/fonts/Montserrat-Bold.ttf", "/root/fonts/Montserrat-Bold.ttf") \
+    .add_local_file("backend/fonts/Poppins-Bold.ttf", "/root/fonts/Poppins-Bold.ttf") \
+    .add_local_file("backend/fonts/Lato-Bold.ttf", "/root/fonts/Lato-Bold.ttf") \
+    .add_local_file("backend/fonts/Oswald-Bold.ttf", "/root/fonts/Oswald-Bold.ttf") \
+    .add_local_file("backend/fonts/Raleway-Bold.ttf", "/root/fonts/Raleway-Bold.ttf")
+
+
+
+
 
 # Lightweight Image for Web Endpoints (Fast Cold Start)
 light_image = modal.Image.debian_slim().pip_install("fastapi", "pydantic")
@@ -184,11 +198,6 @@ def generate_subtitles_logic(request_data: dict):
             # Apply duration
             if duration > 0:
                  # Ensure we don't exceed clip duration taking offset into account
-                 # In MoviePy 1.x subclip is absolute time in the source.
-                 # If we already subclipped offset, clip is now shorter.
-                 # Actually, subclip(start, end).
-                 # Let's use simple logic:
-                 # If we sliced offset, new clip starts at 0 relative.
                  if duration < clip.duration:
                     clip = clip.subclip(0, duration)
                 
@@ -199,11 +208,6 @@ def generate_subtitles_logic(request_data: dict):
             
             audio_clips.append(clip)
             
-            # Don't close video_clip immediately if audio_clip depends on it? 
-            # In 1.0.3, audio might reference the file. 
-            # We keep it open implicitly or risk closing the fd.
-            # safe to close video reader but keep audio? 
-            # actually moviepy manages this.
         except Exception as e:
             debug_logs.append(f"Error extracting audio from video {idx}: {str(e)}")
             print(f"Error extracting audio from video {idx}: {e}")
@@ -281,8 +285,7 @@ def generate_subtitles_logic(request_data: dict):
         print(f"Gemini Parse Error: {e}")
         return {"status": "error", "message": str(e), "raw": response.text}
 
-@app.function(image=image, timeout=3600)  # CPU is faster for cold starts on simple edits
-
+@app.function(image=image, timeout=3600)  # Embedded fonts, no mount arg needed
 def render_video_logic(request_data: dict, r2_creds: dict):
     # Monkeypatch PIL.Image.ANTIALIAS for MoviePy 1.0.3 compatibility with Pillow 10+
     import PIL.Image
@@ -316,11 +319,19 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             from moviepy.video.VideoClip import ColorClip, TextClip
             from moviepy.video.compositing.concatenate import concatenate_videoclips
 
-    import boto3
+    # --- IMPORTS ---
     import os
+    import boto3
     import requests
     import json
     import time
+    import subprocess
+    
+    # Runtime Font Cache (since build-time cache misses added files)
+    if not os.path.exists("/tmp/font_cache_init"):
+        print("Initializing Font Cache (Runtime)...")
+        subprocess.run(["fc-cache", "-f", "-v"], check=False)
+        with open("/tmp/font_cache_init", "w") as f: f.write("done")
     
     video_tracks = request_data.get('video_tracks', [])
     audio_tracks = request_data.get('audio_tracks', [])
@@ -329,10 +340,17 @@ def render_video_logic(request_data: dict, r2_creds: dict):
     output_key = request_data.get('output_key')
     
     print(f"Starting Render (CPU Optimized). Output: {output_key}")
-    print("BACKEND VERSION: 2.1.0 - MoviePy v2 Fixes")
+    print("BACKEND VERSION: 2.6.0 - Hostile Font Environment Fixes") 
     print(f"Video Tracks: {len(video_tracks)}")
     print(f"Audio Tracks: {len(audio_tracks)}")
     print(f"Text Tracks: {len(text_tracks)}")
+    
+    # Debug: List fonts
+    base_path = "/usr/share/fonts/truetype/custom"
+    if os.path.exists(base_path):
+        print(f"Custom Fonts Present: {os.listdir(base_path)}")
+    else:
+        print("CRITICAL ERROR: Custom font directory missing!")
 
     # Setup R2
     s3_client = boto3.client(
@@ -342,7 +360,9 @@ def render_video_logic(request_data: dict, r2_creds: dict):
         aws_secret_access_key=r2_creds['secret_access_key'],
         region_name='auto'
     )
-
+    
+   # ... (Download helper omitted for brevity in diff, assume it exists or use full replace if needed) ...
+    # RE-DECLARING download_asset helper since replace_file_content scope is sticky
     local_assets_dir = "/tmp/assets"
     os.makedirs(local_assets_dir, exist_ok=True)
     
@@ -428,12 +448,6 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                     clip = VideoFileClip(local_path)
             except Exception as e:
                 print(f"Failed to load clip {local_path}: {e}")
-                # Debug: Print file info
-                try:
-                    import subprocess
-                    print("File Info:")
-                    subprocess.run(["ls", "-l", local_path])
-                except: pass
                 continue
             
             if duration > 0 and not isinstance(clip, (ImageClip if 'ImageClip' in locals() else type(None))):
@@ -501,56 +515,272 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 duration = track.get('duration', 2)
                 style = track.get('style', {})
                 
-                # Extract Style (Fixing Key Mismatch: Frontend sends camelCase)
-                font_size = style.get('fontSize', 60)
+                # Force Int Font Size (Critical for Pillow)
+                font_size = int(float(style.get('fontSize') or style.get('font_size') or 60))
                 color = style.get('color', 'white')
-                font = style.get('fontFamily', 'Arial')
-                stroke_color = style.get('stroke', 'black')
-                stroke_width = style.get('strokeWidth', 0)
-                bg_color = style.get('backgroundColor', 'transparent')
+                requested_font = style.get('fontFamily') or style.get('font_family') or 'Arial'
                 
-                # Create Text Clip
-                # Note: 'size' parameter wraps text. 800px is good for mobile.
-                txt_clip = TextClip(
-                    text, 
-                    fontsize=font_size, 
-                    color=color, 
-                    font=font,
-                    stroke_color=stroke_color if stroke_width > 0 else None,
-                    stroke_width=stroke_width if stroke_width > 0 else 0,
-                    bg_color=bg_color if bg_color != 'transparent' else None,
-                    method='caption', 
-                    size=(900, None)
-                )
+                # Font Logic - Relocated to /root/fonts for safety
+                base_path = "/root/fonts"
+                
+                raw_font_map = {
+                    'Anton': f'{base_path}/Anton-Regular.ttf',
+                    'Bebas Neue': f'{base_path}/BebasNeue-Regular.ttf',
+                    'Montserrat': f'{base_path}/Montserrat-Bold.ttf',
+                    'Poppins': f'{base_path}/Poppins-Bold.ttf',
+                    'Lato': f'{base_path}/Lato-Bold.ttf',
+                    'Oswald': f'{base_path}/Oswald-Bold.ttf',
+                    'Raleway': f'{base_path}/Raleway-Bold.ttf',
+                    'Roboto': '/usr/share/fonts/truetype/roboto/hinted/Roboto-Bold.ttf', 
+                    'Open Sans': '/usr/share/fonts/truetype/open-sans/OpenSans-Bold.ttf',
+                    'Inter': '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf' 
+                }
+                
+                # Case-Insensitive Lookup
+                font_map = {k.lower(): v for k, v in raw_font_map.items()}
+                font_path = font_map.get(str(requested_font).lower())
+                
+                font_found = False
+                if font_path:
+                    if os.path.exists(font_path):
+                         font = font_path
+                         font_found = True
+                         print(f"Found Custom Font: {font}")
+                    else:
+                         print(f"MISSING Custom Font: {font_path}")
+                         
+                if not font_found:
+                    # Fallback
+                    if os.path.exists("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
+                        font = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+                    else:
+                        font = "Arial"
+                    print(f"Fallback Font: {font}")
+                
+                # Text Transform (Uppercase support)
+                text_transform = style.get('textTransform') or style.get('text_transform')
+                if text_transform == 'uppercase':
+                    text = text.upper()
+                
+                stroke_color = style.get('stroke', '#000000')
+                # Check both keys for stroke width
+                stroke_width = style.get('strokeWidth')
+                if stroke_width is None: stroke_width = style.get('stroke_width')
+                stroke_width = int(stroke_width) if stroke_width is not None else 0
+                
+                print(f"Style Debug: {style}")
+                print(f"Generating Output using PILLOW (Pure Python)...")
+
+                # Helper to render using Pillow
+                def generate_pillow_text(text, font_path, font_size, color, stroke_color, stroke_width, bg_color):
+                     import uuid
+                     import textwrap
+                     from PIL import Image, ImageDraw, ImageFont
+                     
+                     temp_filename = f"/tmp/txt_{uuid.uuid4()}.png"
+                     
+                     # 1. Load Font
+                     try:
+                        font = ImageFont.truetype(font_path, font_size)
+                     except Exception as font_err:
+                        print(f"PIL Font Load Error: {font_err}. Fallback to default.")
+                        font = ImageFont.load_default() # Very ugly, but prevents crash
+
+                     # 2. Pixel-Based Wrapping (Matches CSS/Studio behavior)
+                     # Fixed char limit causes "narrow column" look for small fonts.
+                     # We must wrap based on VIDEO WIDTH (1080p) - PADDING.
+                     
+                     # INCREASED SAFETY MARGIN: 980px (was 850px)
+                     # 1080 - 980 = 100px padding total (~50px each side)
+                     # User wants wider text, less stacking.
+                     MAX_WIDTH_PX = 980 
+                     
+                     words = text.split()
+                     wrapped_lines = []
+                     current_line_words = []
+                     
+                     for word in words:
+                         # Test width effectively
+                         test_line = " ".join(current_line_words + [word])
+                         
+                         try:
+                             # Modern Pillow
+                             line_w = font.getlength(test_line)
+                         except AttributeError:
+                             # Older Pillow
+                             line_w, _ = font.getsize(test_line)
+                         
+                         # Account for stroke width (left + right) in the width calculation
+                         total_w = line_w + (int(stroke_width) * 2)
+
+                         if total_w <= MAX_WIDTH_PX:
+                             current_line_words.append(word)
+                         else:
+                             if current_line_words:
+                                 wrapped_lines.append(" ".join(current_line_words))
+                                 current_line_words = [word] # Start new line with current word
+                             else:
+                                 # One massive word? Force break it or just let it overflow?
+                                 # Let's just put it on the line
+                                 wrapped_lines.append(word)
+                                 current_line_words = []
+                     
+                     if current_line_words:
+                         wrapped_lines.append(" ".join(current_line_words))
+                     
+                     if not wrapped_lines: # Empty text safety
+                         wrapped_lines = [" "]
+
+                     # 3. Calculate Dimensions
+                     dummy_draw = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
+
+                     
+                     # Get Max Width/Height
+                     line_heights = []
+                     max_width = 0
+                     
+                     # Calculate bbox for each line
+                     
+                     total_height = 0
+                     line_spacing = 5 # Tighter line spacing
+                     
+                     valid_lines = []
+                     
+                     for line in wrapped_lines:
+                         # textbbox(xy, text, font=, stroke_width=)
+                         # xy is top-left
+                         try:
+                            bbox = dummy_draw.textbbox((0, 0), line, font=font, stroke_width=int(stroke_width))
+                            w = bbox[2] - bbox[0]
+                            h = bbox[3] - bbox[1]
+                         except AttributeError:
+                             # Old PIL fallback
+                             w, h = dummy_draw.textsize(line, font=font, stroke_width=int(stroke_width))
+                         
+                         max_width = max(max_width, w)
+                         line_heights.append(h)
+                         total_height += h
+                         valid_lines.append(line)
+                     
+                     total_height += (len(valid_lines) - 1) * line_spacing
+                     
+                     # Add padding
+                     padding = 40
+                     img_w = int(max_width + padding * 2)
+                     img_h = int(total_height + padding * 2)
+                     
+                     # 4. Create Image
+                     # Handle bg color
+                     bg_rgba = (0,0,0,0) # Transparent
+                     if bg_color and bg_color != 'transparent':
+                         # Convert color name/hex to rgba? 
+                         # PIL handles common names and hex.
+                         bg_rgba = bg_color 
+                     
+                     img = Image.new('RGBA', (img_w, img_h), bg_rgba)
+                     draw = ImageDraw.Draw(img)
+                     
+                     # 5. Draw Text
+                     current_y = padding
+                     for i, line in enumerate(valid_lines):
+                         # Center text horizontally
+                         # We need line width again
+                         try:
+                            bbox = draw.textbbox((0, 0), line, font=font, stroke_width=int(stroke_width))
+                            line_w = bbox[2] - bbox[0]
+                         except:
+                             line_w, _ = draw.textsize(line, font=font, stroke_width=int(stroke_width))
+                         
+                         x = (img_w - line_w) // 2
+                         
+                         # Draw Stroke & Fill
+                         draw.text(
+                             (x, current_y), 
+                             line, 
+                             font=font, 
+                             fill=color, 
+                             stroke_width=int(stroke_width), 
+                             stroke_fill=stroke_color,
+                             align='center'
+                        )
+                         current_y += line_heights[i] + line_spacing
+                         
+                     img.save(temp_filename)
+                     print(f"PIL Generated: {temp_filename}")
+                     return temp_filename
+
+                img_path = None
+                using_fallback_renderer = False
+                bg_color = 'transparent' # Default for text rendering
+
+                try:
+                    # Attempt 1: Trusted Custom Font + Pillow (Best Quality)
+                    img_path = generate_pillow_text(text, font, font_size, color, stroke_color, stroke_width, bg_color)
+                except Exception as e:
+                    print(f"PIL Custom Font Failed: {e}")
+                    # Attempt 2: System Font + Pillow
+                    try: 
+                        fallback = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+                        if not os.path.exists(fallback): fallback = "Arial"
+                        img_path = generate_pillow_text(text, fallback, font_size, color, stroke_color, stroke_width, bg_color)
+                        print("Fallback Font Image Generated (PIL)")
+                    except Exception as e2:
+                        print(f"PIL Fallback Failed: {e2}")
+                        using_fallback_renderer = True
+                
+                if not using_fallback_renderer and img_path and os.path.exists(img_path):
+                    from moviepy.editor import ImageClip
+                    txt_clip = ImageClip(img_path).set_duration(duration)
+                else:
+                    # ULTIMATE SAFETY NET: MoviePy Caption (Visible but Ugly)
+                    print("CRITICAL: PIL failed. Reverting to MoviePy 'caption' fallback.")
+                    try:
+                        # This works reliably but ignores strokes/uppercase often
+                        from moviepy.editor import TextClip
+                        txt_clip = TextClip(
+                                text, 
+                                fontsize=font_size, 
+                                color=color, 
+                                font="Arial", 
+                                method='caption',
+                                size=(900, None)
+                        )
+                    except Exception as e3:
+                         print(f"Final Fallback Failed: {e3}")
+                         # Empty clip to prevent crash
+                         from moviepy.editor import ColorClip
+                         txt_clip = ColorClip(size=(100,100), color=(0,0,0,0), duration=duration)
+                
+                txt_clip = txt_clip.set_start(start)
+
                 
                 txt_clip = txt_clip.set_start(start).set_duration(duration)
                 
                 # Positioning Logic
-                # Frontend sends normalized Center coordinates (0.5, 0.5 = Center of screen)
-                # MoviePy expects Top-Left coordinates for set_position
-                
+                # Priority: Root positionX -> Style x -> Default
                 pos_x = track.get('positionX')
-                pos_y = track.get('positionY')
+                if pos_x is None: pos_x = style.get('x')
                 
-                # Default to Center-Bottom (Standard Subtitle position) if missing
+                pos_y = track.get('positionY')
+                if pos_y is None: pos_y = style.get('y')
+                
+                # Default to Center-Bottom
                 if pos_x is None: pos_x = 0.5
                 if pos_y is None: pos_y = 0.8
                 
-                # Canvas Dimensions (Vertical 9:16)
+                # Canvas Dimensions
                 W, H = 1080, 1920
                 
                 # Calculate absolute center target
                 target_center_x = pos_x * W
                 target_center_y = pos_y * H
                 
-                # Calculate Top-Left position to achieve that center
-                # We simply define a function for set_position to ensure it's evaluated at render time if needed,
-                # but static calculation is safer for composite.
+                # Center Pivot conversion
                 final_x = target_center_x - (txt_clip.w / 2)
                 final_y = target_center_y - (txt_clip.h / 2)
                 
                 txt_clip = txt_clip.set_position((final_x, final_y))
-
+                
                 clips_to_composite.append(txt_clip)
             except Exception as e:
                 print(f"Failed to render text track: {e}")
@@ -618,10 +848,6 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             output_key,
             ExtraArgs={'ContentType': 'video/mp4', 'ContentDisposition': 'inline'} # Allow Inline Playback (Fixes iOS Player)
         )
-        # Placeholder structure for URL (adjust as needed for public access)
-        # url = f"https://{r2_creds['bucket_name']}.{r2_creds['account_id']}.r2.cloudflarestorage.com/{output_key}" 
-        # Better public URL construction if using custom domain:
-        # url = f"https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/{output_key}"
             
         print("Render Success!")
         update_status("Finalizing...", 100, status="finished")
@@ -635,6 +861,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
 
 @app.function(image=image, gpu="T4", timeout=1800)
 def process_video_logic(video_url: str, output_key: str, api_key: str, r2_credentials: dict):
+    # ... (Rest of logic identical to before)
     import ffmpeg
     import requests
     import os
@@ -728,17 +955,12 @@ def process_video_logic(video_url: str, output_key: str, api_key: str, r2_creden
         print("Gemini Analysis Result:", analysis_result_json)
         
         # 5. Generate Audio (TTS)
-        # MOVED TO STUDIO PHASE: TTS will be triggered separately in the Studio view.
-        # This prevents timeouts during the initial analysis phase.
         try:
             print("Skipped TTS for initial analysis (moved to Studio)...")
-            # voiceover_text = " ".join([scene.get('voiceover', '') for scene in analysis_result_json.get('script', []) if scene.get('voiceover')])
             pass 
         except Exception as e:
             print(f"Skipped TTS: {e}")
             
-        # 4. Parse Result (Ensure we didn't break anything)
-
         # 6. Save Result to R2
         final_result_data = {
             "status": "completed",
@@ -820,8 +1042,6 @@ def generate_subtitles(item: SubtitleRequest):
         "audio_tracks": item.audio_tracks,
         "api_key": item.api_key
     }
-     # Use .remote() to wait for result (synchronous HTTP)
-     # This assumes the operation completes within the HTTP timeout (usually 60-180s)
      result = generate_subtitles_logic.remote(request_data)
      return result
 
