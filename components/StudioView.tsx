@@ -515,13 +515,13 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
                 track_index: t.trackIndex || 0,
                 style: t.style ? {
                     color: t.style.color,
-                    font_size: (t.style.fontSize || 24) * 3.5, // Restored to 3.5 (User wants BIG text)
+                    font_size: (t.style.fontSize || 24) * 3.5,
                     font_family: t.style.fontFamily,
                     font_weight: t.style.fontWeight,
                     stroke: t.style.stroke,
-                    stroke_width: (t.style.strokeWidth || 0) * 6, // Thick borders
+                    stroke_width: (t.style.strokeWidth || 0) * 4.5, // Reduced from 6 to 4.5 to clear artifacts
                     background_color: t.style.backgroundColor,
-                    text_transform: t.style.textTransform, // Pass text transform (uppercase)
+                    text_transform: t.style.textTransform,
                     shadow: t.style.shadow, // Shadow parsing is complex, backend currently ignores it or needs update
                     x: t.style.x,
                     y: t.style.y
