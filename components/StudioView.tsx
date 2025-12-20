@@ -519,7 +519,7 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
                     font_family: t.style.fontFamily,
                     font_weight: t.style.fontWeight,
                     stroke: t.style.stroke,
-                    stroke_width: (t.style.strokeWidth || 0) * 4.5, // Reduced from 6 to 4.5 to clear artifacts
+                    stroke_width: (t.style.strokeWidth || 0) * 7.5, // Increased to 7.5 to FULLY fill gaps (User wants black holes)
                     background_color: t.style.backgroundColor,
                     text_transform: t.style.textTransform,
                     shadow: t.style.shadow, // Shadow parsing is complex, backend currently ignores it or needs update
