@@ -526,21 +526,30 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 txt_clip = txt_clip.set_start(start).set_duration(duration)
                 
                 # Positioning Logic
-                # Frontend sends absolute pixels usually? Or relative? 
-                # Assuming 0,0 is center in some editors, but MoviePy 0,0 is top left.
-                # If pos_x/y are present, use them. Else center.
+                # Frontend sends normalized Center coordinates (0.5, 0.5 = Center of screen)
+                # MoviePy expects Top-Left coordinates for set_position
+                
                 pos_x = track.get('positionX')
                 pos_y = track.get('positionY')
                 
-                if pos_x is not None and pos_y is not None:
-                     # If values are very small (<1), treat as relative
-                     if -1.0 <= pos_x <= 1.0 and -1.0 <= pos_y <= 1.0:
-                         txt_clip = txt_clip.set_position((pos_x, pos_y), relative=True)
-                     else:
-                         txt_clip = txt_clip.set_position((pos_x, pos_y))
-                else:
-                    # Default to true center as requested
-                    txt_clip = txt_clip.set_position(('center', 'center'))
+                # Default to Center-Bottom (Standard Subtitle position) if missing
+                if pos_x is None: pos_x = 0.5
+                if pos_y is None: pos_y = 0.8
+                
+                # Canvas Dimensions (Vertical 9:16)
+                W, H = 1080, 1920
+                
+                # Calculate absolute center target
+                target_center_x = pos_x * W
+                target_center_y = pos_y * H
+                
+                # Calculate Top-Left position to achieve that center
+                # We simply define a function for set_position to ensure it's evaluated at render time if needed,
+                # but static calculation is safer for composite.
+                final_x = target_center_x - (txt_clip.w / 2)
+                final_y = target_center_y - (txt_clip.h / 2)
+                
+                txt_clip = txt_clip.set_position((final_x, final_y))
 
                 clips_to_composite.append(txt_clip)
             except Exception as e:

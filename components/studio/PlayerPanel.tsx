@@ -138,6 +138,27 @@ export function PlayerPanel({
         });
     };
 
+    // Touch Support for Mobile/iPad
+    const handleTextTouchStart = (e: React.TouchEvent, clip: any) => {
+        e.stopPropagation();
+        // e.preventDefault(); // Don't prevent default here or it might block scrolling/gestures if not careful, 
+        // but for dragging we usually want to capture it.
+        if (onSelectClip) onSelectClip(clip.id);
+
+        const touch = e.touches[0];
+        const style = clip.style || {};
+        const currentX = style.x !== undefined ? style.x : 0.5;
+        const currentY = style.y !== undefined ? style.y : 0.8;
+
+        setDraggingText({
+            id: clip.id,
+            initialMouseX: touch.clientX,
+            initialMouseY: touch.clientY,
+            initialX: currentX,
+            initialY: currentY
+        });
+    };
+
     // Snap Guides State
     const [snapGuides, setSnapGuides] = useState<{ x: boolean, y: boolean }>({ x: false, y: false });
 
@@ -146,15 +167,15 @@ export function PlayerPanel({
         currentTime >= t.start && currentTime < t.start + t.duration
     );
 
-    // Global Mouse Move for Text Dragging
+    // Global Mouse/Touch Move for Text Dragging
     useEffect(() => {
         if (!draggingText) return;
 
-        const handleMouseMove = (e: MouseEvent) => {
+        const handleMove = (clientX: number, clientY: number) => {
             if (containerRef.current) {
                 const rect = containerRef.current.getBoundingClientRect();
-                const deltaX = e.clientX - draggingText.initialMouseX;
-                const deltaY = e.clientY - draggingText.initialMouseY;
+                const deltaX = clientX - draggingText.initialMouseX;
+                const deltaY = clientY - draggingText.initialMouseY;
 
                 // Convert pixels to percentage logic
                 // container width/height
@@ -192,28 +213,40 @@ export function PlayerPanel({
                     const tracks = [...(textTracks || [])];
                     const index = tracks.findIndex(t => t.id === draggingText.id);
                     if (index !== -1) {
-                        // Shallow Update for Performance? Or full update?
-                        // Full update triggers re-render, which is fine for handful of texts.
-                        tracks[index] = {
+                        const updatedTrack = {
                             ...tracks[index],
                             style: { ...tracks[index].style, x: newX, y: newY }
                         };
+                        // Optimization: Only trigger update if values changed significantly? 
+                        // For now straight update.
+                        tracks[index] = updatedTrack;
                         onUpdateTextTracks(tracks);
                     }
                 }
             }
         };
 
-        const handleMouseUp = () => {
+        const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+        const handleTouchMove = (e: TouchEvent) => {
+            e.preventDefault(); // Prevent scrolling while dragging
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        };
+
+        const handleEnd = () => {
             setDraggingText(null);
             setSnapGuides({ x: false, y: false });
         };
 
         window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleEnd);
         };
     }, [draggingText, textTracks, onUpdateTextTracks]);
 
@@ -290,6 +323,7 @@ export function PlayerPanel({
                     <div
                         key={clip.id}
                         onMouseDown={(e) => handleTextMouseDown(e, clip)}
+                        onTouchStart={(e) => handleTextTouchStart(e, clip)}
                         className={`absolute z-50 px-2 py-1 cursor-move transition-transform duration-75 select-none
                             ${isSelected ? 'ring-2 ring-indigo-500 rounded' : 'hover:ring-1 hover:ring-white/50 rounded'}
                         `}
