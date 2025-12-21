@@ -319,12 +319,21 @@ export function PlayerPanel({
                 const dropShadow = style.shadow && style.shadow !== 'none' ? style.shadow : '';
                 const combinedShadow = [strokeShadow, dropShadow].filter(Boolean).join(', ') || 'none';
 
+                // Animation Class Map
+                const animMap: Record<string, string> = {
+                    'pop': 'anim-pop',
+                    'fade': 'anim-fade',
+                    'slide_up': 'anim-slide_up',
+                    'typewriter': 'anim-typewriter',
+                };
+                const animClass = (style.animation && animMap[style.animation]) ? animMap[style.animation] : '';
+
                 return (
                     <div
                         key={clip.id}
                         onMouseDown={(e) => handleTextMouseDown(e, clip)}
                         onTouchStart={(e) => handleTextTouchStart(e, clip)}
-                        className={`absolute z-50 px-2 py-1 cursor-move transition-transform duration-75 select-none
+                        className={`absolute z-50 px-2 py-1 cursor-move transition-transform duration-75 select-none ${animClass}
                             ${isSelected ? 'ring-2 ring-indigo-500 rounded' : 'hover:ring-1 hover:ring-white/50 rounded'}
                         `}
                         style={{
@@ -342,7 +351,10 @@ export function PlayerPanel({
                             backgroundColor: style.backgroundColor || 'transparent',
                             borderRadius: style.borderRadius || '0px',
                             padding: style.padding || '0px',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'pre-wrap', // Enable wrapping
+                            maxWidth: '90%',        // Match backend 980px limit (approx)
+                            textAlign: 'center',    // Match backend centering
+                            lineHeight: 1.2         // Reasonable line height
                         }}
                     >
                         {clip.text}

@@ -5,6 +5,7 @@ import { TimelinePanel } from "./studio/TimelinePanel";
 import { PropertiesPanel } from "./studio/PropertiesPanel";
 import { SubtitlePanel } from "./studio/SubtitlePanel";
 import { VoiceoverPanel } from "./studio/VoiceoverPanel";
+import { AnimationPanel } from "./studio/AnimationPanel";
 import { ExportModal, ExportStatus } from "./studio/ExportModal";
 import { WhatsNewModal } from "./WhatsNewModal";
 import {
@@ -122,11 +123,11 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
     // Playback State
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(30);
+    const [duration, setDuration] = useState(10); // Default, updates with content
 
     // Selection & UI State
     const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock' | 'Voiceover'>('Media');
+    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock' | 'Voiceover' | 'Animations'>('Media');
 
     // Track State (Muted/Hidden/Locked)
     const [videoTrackState, setVideoTrackState] = useState<Record<number, { muted: boolean, hidden: boolean, locked: boolean }>>({});
@@ -433,7 +434,7 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
         setExportStatus('uploading');
         setFinalDownloadUrl(null);
 
-        const outputKey = `export_${Date.now()}.mp4`;
+        const outputKey = `processed/export_${Date.now()}.mp4`;
         // Hardcoded R2 Public Base URL (Using r2.dev for MVP as configured in env)
         // Ideally should come from env but for client side we need NEXT_PUBLIC_...
         // Assuming the R2_PUBLIC_URL from env finding earlier: https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev
@@ -515,16 +516,17 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
                 track_index: t.trackIndex || 0,
                 style: t.style ? {
                     color: t.style.color,
-                    font_size: (t.style.fontSize || 24) * 3.5,
+                    font_size: (t.style.fontSize || 24) * 3.0, // Reduced to 3.0x for 1080p match
                     font_family: t.style.fontFamily,
                     font_weight: t.style.fontWeight,
                     stroke: t.style.stroke,
-                    stroke_width: (t.style.strokeWidth || 0) * 7.5, // Increased to 7.5 to FULLY fill gaps (User wants black holes)
+                    stroke_width: (t.style.strokeWidth || 0) * 1.5, // Reduced to 1.5x for cleaner stroke
                     background_color: t.style.backgroundColor,
                     text_transform: t.style.textTransform,
                     shadow: t.style.shadow, // Shadow parsing is complex, backend currently ignores it or needs update
                     x: t.style.x,
-                    y: t.style.y
+                    y: t.style.y,
+                    animation: t.style.animation // Pass animation type to backend
                 } : undefined
             }));
 

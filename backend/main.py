@@ -13,6 +13,7 @@ image = modal.Image.debian_slim() \
     .add_local_file("backend/fonts/Anton-Regular.ttf", "/root/fonts/Anton-Regular.ttf") \
     .add_local_file("backend/fonts/BebasNeue-Regular.ttf", "/root/fonts/BebasNeue-Regular.ttf") \
     .add_local_file("backend/fonts/Montserrat-Bold.ttf", "/root/fonts/Montserrat-Bold.ttf") \
+    .add_local_file("backend/fonts/Montserrat-Black.ttf", "/root/fonts/Montserrat-Black.ttf") \
     .add_local_file("backend/fonts/Poppins-Bold.ttf", "/root/fonts/Poppins-Bold.ttf") \
     .add_local_file("backend/fonts/Lato-Bold.ttf", "/root/fonts/Lato-Bold.ttf") \
     .add_local_file("backend/fonts/Oswald-Bold.ttf", "/root/fonts/Oswald-Bold.ttf") \
@@ -527,6 +528,7 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                     'Anton': f'{base_path}/Anton-Regular.ttf',
                     'Bebas Neue': f'{base_path}/BebasNeue-Regular.ttf',
                     'Montserrat': f'{base_path}/Montserrat-Bold.ttf',
+                    'Montserrat-Black': f'{base_path}/Montserrat-Black.ttf', # Added Black variant
                     'Poppins': f'{base_path}/Poppins-Bold.ttf',
                     'Lato': f'{base_path}/Lato-Bold.ttf',
                     'Oswald': f'{base_path}/Oswald-Bold.ttf',
@@ -538,7 +540,20 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 
                 # Case-Insensitive Lookup
                 font_map = {k.lower(): v for k, v in raw_font_map.items()}
+                font_map = {k.lower(): v for k, v in raw_font_map.items()}
                 font_path = font_map.get(str(requested_font).lower())
+
+                # Smart Weight Selection for Montserrat
+                font_weight = style.get('fontWeight') or style.get('font_weight')
+                if str(requested_font).lower() == 'montserrat':
+                    try:
+                        weight_val = int(font_weight) if font_weight else 400
+                        if weight_val >= 800:
+                             font_path = font_map.get('montserrat-black')
+                             print("Selected Montserrat-Black based on weight 900")
+                    except:
+                       pass
+                
                 
                 font_found = False
                 if font_path:
@@ -579,12 +594,29 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                      
                      temp_filename = f"/tmp/txt_{uuid.uuid4()}.png"
                      
-                     # 1. Load Font
-                     try:
-                        font = ImageFont.truetype(font_path, font_size)
-                     except Exception as font_err:
-                        print(f"PIL Font Load Error: {font_err}. Fallback to default.")
-                        font = ImageFont.load_default() # Very ugly, but prevents crash
+                     # 1. Load Font (ROBUST)
+                     font = None
+                     print(f"DEBUG: Loading font: '{font_path}' Size: {font_size}")
+                     
+                     if font_path and os.path.exists(font_path):
+                         try:
+                            font = ImageFont.truetype(font_path, font_size)
+                         except Exception as e:
+                            print(f"ERROR: Failed to load custom font {font_path}: {e}")
+
+                     if font is None:
+                         # Fallback to system bold font (Vector)
+                         fallback_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+                         if os.path.exists(fallback_path):
+                             print(f"WARNING: Using Fallback System Font: {fallback_path}")
+                             try:
+                                 font = ImageFont.truetype(fallback_path, font_size)
+                             except:
+                                 pass
+                     
+                     if font is None:
+                        print("CRITICAL: All fonts failed. Using bitmap default (Tiny).")
+                        font = ImageFont.load_default()
 
                      # 2. Pixel-Based Wrapping (Matches CSS/Studio behavior)
                      # Fixed char limit causes "narrow column" look for small fonts.
@@ -779,7 +811,72 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 final_x = target_center_x - (txt_clip.w / 2)
                 final_y = target_center_y - (txt_clip.h / 2)
                 
-                txt_clip = txt_clip.set_position((final_x, final_y))
+                # ANIMATION LOGIC
+                anim_type = style.get('animation')
+                
+                if anim_type == 'slide_up':
+                     # Slide from 50px below combined with Fade
+                     txt_clip = txt_clip.set_position(lambda t: (final_x, final_y + 50 * max(0, 1 - t/0.3))).fadein(0.3)
+                     
+                elif anim_type == 'fade':
+                     txt_clip = txt_clip.set_position((final_x, final_y)).fadein(0.3)
+                     
+                elif anim_type == 'pop' or anim_type == 'typewriter': 
+                     # Pop: Scale 0 -> 1 over 0.2s (Simulating pop)
+                     # (Typewriter mapped to Pop for now as v1 fallback for single-image clips)
+                     def pop_scale(t):
+                         if t < 0.25: return t / 0.25
+                         return 1
+                         
+                     # Centered Resize Logic (Compensate for top-left anchor)
+                     w_orig, h_orig = txt_clip.w, txt_clip.h
+                     txt_clip = txt_clip.resize(pop_scale)
+                     
+                     def centered_pos(t):
+                         s = pop_scale(t)
+                         return (
+                             final_x + (w_orig - w_orig*s)/2,
+                             final_y + (h_orig - h_orig*s)/2
+                         )
+                     
+                     txt_clip = txt_clip.set_position(centered_pos)
+                     txt_clip = txt_clip.set_position(centered_pos)
+                     
+                elif anim_type == 'bounce':
+                     # Bounce: Simple vertical oscillation
+                     # y(t) = final_y - 30 * |sin(3*t)|  (Bounces up)
+                     import math
+                     def bounce_pos(t):
+                         return (final_x, final_y - 80 * abs(math.sin(3 * t)))
+                     txt_clip = txt_clip.set_position(bounce_pos)
+                     
+                elif anim_type == 'shake':
+                     # Shake: Fast horizontal oscillation
+                     import math
+                     def shake_pos(t):
+                         return (final_x + 20 * math.sin(20 * t), final_y)
+                     txt_clip = txt_clip.set_position(shake_pos)
+                     
+                     txt_clip = txt_clip.set_position(shake_pos)
+                     
+                elif anim_type == 'swing':
+                     # Swing: Pendulum rotation
+                     # angle(t) = 15 * sin(2*t)
+                     import math
+                     txt_clip = txt_clip.rotate(lambda t: 15 * math.sin(2 * t)).set_position((final_x, final_y))
+
+                elif anim_type == 'glitch':
+                     # Glitch: Jumps randomly
+                     import random
+                     def glitch_pos(t):
+                         # Jump every 0.1s
+                         if int(t * 10) % 5 == 0:
+                             return (final_x + random.randint(-20, 20), final_y + random.randint(-10, 10))
+                         return (final_x, final_y)
+                     txt_clip = txt_clip.set_position(glitch_pos)
+                     
+                else:
+                     txt_clip = txt_clip.set_position((final_x, final_y))
                 
                 clips_to_composite.append(txt_clip)
             except Exception as e:
@@ -849,6 +946,32 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             ExtraArgs={'ContentType': 'video/mp4', 'ContentDisposition': 'inline'} # Allow Inline Playback (Fixes iOS Player)
         )
             
+        # Upload Result JSON (Corrected for History API)
+        result_key = f"{output_key}_result.json"
+        public_url = f"https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/{output_key}"
+        
+        # summary from script (first 100 chars of first item)
+        summary_text = "Video Render"
+        if 'script' in request_data and request_data['script']:
+            summary_text = request_data['script'][0].get('text', 'Video Render')[:100]
+
+        result_data = {
+            "status": "completed",
+            "output_url": public_url,
+            "key": output_key,
+            "script": request_data.get('script', []),
+            "summary": summary_text,
+            "timestamp": time.time()
+        }
+        
+        print(f"Uploading result manifest to {result_key}...")
+        s3_client.put_object(
+            Bucket=r2_creds['bucket_name'],
+            Key=result_key,
+            Body=json.dumps(result_data),
+            ContentType='application/json'
+        )
+
         print("Render Success!")
         update_status("Finalizing...", 100, status="finished")
         return {"status": "completed", "key": output_key}
@@ -1034,7 +1157,7 @@ def render_video(item: RenderRequest):
     call = render_video_logic.spawn(request_data, r2_creds)
     return {"status": "rendering_started", "call_id": call.object_id}
 
-@app.function(image=light_image)
+@app.function(image=light_image, timeout=600)
 @web_endpoint(method="POST")
 def generate_subtitles(item: SubtitleRequest):
      request_data = {

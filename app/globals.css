@@ -43,3 +43,328 @@ body {
     background: rgba(82, 82, 91, 1);
     /* zinc-600 */
 }
+
+/* --- SUBTITLE ANIMATION KEYFRAMES --- */
+/* IMPORTANT: All transforms must preserve translate(-50%, -50%) for centering */
+
+@keyframes popIn {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+
+    80% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    0% {
+        transform: translate(-50%, -20%);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translate(-50%, -50%);
+        opacity: 1;
+    }
+}
+
+@keyframes typewriter {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+/* Class Utilities */
+.anim-pop {
+    animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.anim-fade {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Tailwind has animate-fade-in but let's be explicit */
+.anim-slide_up {
+    animation: slideUp 0.4s ease-out forwards;
+}
+
+.anim-typewriter {
+    animation: typewriter 0.8s steps(20, end) forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* --- PREVIEW SPECIFIC KEYFRAMES (No Translate centering) --- */
+@keyframes popInPreview {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    80% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes slideUpPreview {
+    0% {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) translateY(0);
+    }
+
+    50% {
+        transform: translate(-50%, -50%) translateY(-20px);
+    }
+}
+
+@keyframes bouncePreview {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    25% {
+        transform: translate(-50%, -50%) rotate(-5deg);
+    }
+
+    75% {
+        transform: translate(-50%, -50%) rotate(5deg);
+    }
+}
+
+@keyframes shakePreview {
+
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+
+    25% {
+        transform: rotate(-5deg);
+    }
+
+    75% {
+        transform: rotate(5deg);
+    }
+}
+
+/* Utility Classes for Previews */
+.anim-preview-pop {
+    animation: popInPreview 1.5s infinite;
+}
+
+.anim-preview-slide {
+    animation: slideUpPreview 1.5s infinite;
+}
+
+.anim-preview-bounce {
+    animation: bouncePreview 1.5s infinite;
+}
+
+.anim-preview-shake {
+    animation: shakePreview 1.5s infinite;
+}
+
+.anim-preview-swing {
+    animation: swingPreview 2s ease-in-out infinite;
+}
+
+.anim-preview-glitch {
+    animation: glitchPreview 1s steps(5, end) infinite;
+}
+
+.anim-preview-fade {
+    animation: fadeIn 1.5s infinite;
+}
+
+/* Re-use fadeIn as it has no transform */
+.anim-preview-typewriter {
+    animation: typewriter 2s steps(20, end) infinite;
+}
+
+/* Real Player Classes (Preserve Centering) */
+.anim-bounce {
+    animation: bounce 1s infinite;
+}
+
+.anim-shake {
+    animation: shake 0.5s infinite;
+}
+
+.anim-swing {
+    animation: swing 2s ease-in-out infinite;
+}
+
+.anim-glitch {
+    animation: glitch 1s steps(5, end) infinite;
+}
+
+/* --- NEW ANIMATION KEYFRAMES --- */
+
+@keyframes swing {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    20% {
+        transform: translate(-50%, -50%) rotate(15deg);
+    }
+
+    40% {
+        transform: translate(-50%, -50%) rotate(-10deg);
+    }
+
+    60% {
+        transform: translate(-50%, -50%) rotate(5deg);
+    }
+
+    80% {
+        transform: translate(-50%, -50%) rotate(-5deg);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+}
+
+@keyframes swingPreview {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    20% {
+        transform: rotate(15deg);
+    }
+
+    40% {
+        transform: rotate(-10deg);
+    }
+
+    60% {
+        transform: rotate(5deg);
+    }
+
+    80% {
+        transform: rotate(-5deg);
+    }
+
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+@keyframes glitch {
+    0% {
+        transform: translate(-50%, -50%) translate(0);
+        clip-path: inset(0 0 0 0);
+    }
+
+    20% {
+        transform: translate(-50%, -50%) translate(-2px, 2px);
+        clip-path: inset(20% 0 80% 0);
+    }
+
+    40% {
+        transform: translate(-50%, -50%) translate(2px, -2px);
+        clip-path: inset(40% 0 10% 0);
+    }
+
+    60% {
+        transform: translate(-50%, -50%) translate(-2px, 0);
+        clip-path: inset(80% 0 5% 0);
+    }
+
+    80% {
+        transform: translate(-50%, -50%) translate(2px, 2px);
+        clip-path: inset(10% 0 60% 0);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) translate(0);
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+@keyframes glitchPreview {
+    0% {
+        transform: translate(0);
+        clip-path: inset(0 0 0 0);
+    }
+
+    20% {
+        transform: translate(-2px, 2px);
+        clip-path: inset(20% 0 80% 0);
+    }
+
+    40% {
+        transform: translate(2px, -2px);
+        clip-path: inset(40% 0 10% 0);
+    }
+
+    60% {
+        transform: translate(-2px, 0);
+        clip-path: inset(80% 0 5% 0);
+    }
+
+    80% {
+        transform: translate(2px, 2px);
+        clip-path: inset(10% 0 60% 0);
+    }
+
+    100% {
+        transform: translate(0);
+        clip-path: inset(0 0 0 0);
+    }
+}

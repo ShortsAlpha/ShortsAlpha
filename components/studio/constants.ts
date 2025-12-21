@@ -196,5 +196,18 @@ export const SUBTITLE_PRESETS = [
             textTransform: 'uppercase'
         },
         previewBg: '#000'
-    },
+    }
 ];
+
+export const TEXT_ANIMATIONS = [
+    { value: 'none', label: 'None' },
+    { value: 'pop', label: 'Pop In (Boing)' },
+    { value: 'fade', label: 'Fade In' },
+    { value: 'slide_up', label: 'Slide Up' },
+    { value: 'typewriter', label: 'Typewriter (Word by Word)' },
+    { value: 'bounce', label: 'Bounce' },
+    { value: 'shake', label: 'Shake' },
+    { value: 'swing', label: 'Swing' },
+    { value: 'glitch', label: 'Glitch' }
+];
+

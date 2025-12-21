@@ -37,9 +37,10 @@ export async function POST(request: NextRequest) {
             r2_secret_access_key: process.env.R2_SECRET_ACCESS_KEY || "",
             r2_bucket_name: process.env.R2_BUCKET_NAME || ""
         }, {
-            timeout: 120000, // 120s timeout
+            timeout: 600000, // 10 minutes timeout (Fixes ECONNRESET on long videos)
             maxBodyLength: Infinity,
-            maxContentLength: Infinity
+            maxContentLength: Infinity,
+            httpsAgent: new https.Agent({ keepAlive: true })
         });
 
         return NextResponse.json(response.data);

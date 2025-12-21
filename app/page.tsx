@@ -5,10 +5,12 @@ import { Dashboard } from "@/components/Dashboard";
 import { CreateSourceView } from "@/components/CreateSourceView";
 // AnalysisView removed
 import { StudioView } from "@/components/StudioView";
+import { RenderedVideos } from "@/components/RenderedVideos";
 
 type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings';
 
 export default function Home() {
+    console.log("DEBUG: StudioView Import:", StudioView); // Check if undefined
     const [activeView, setActiveView] = useState<ViewState>("dashboard");
     const [analysisResult, setAnalysisResult] = useState<any>(null);
 
@@ -61,8 +63,13 @@ export default function Home() {
                     />
                 )}
 
+                {/* Rendered Videos View */}
+                {activeView === 'rendered' && (
+                    <RenderedVideos />
+                )}
+
                 {/* Coming Soon Screens */}
-                {(activeView === 'rendered' || activeView === 'stats' || activeView === 'settings') && (
+                {(activeView === 'stats' || activeView === 'settings') && (
                     <div className="flex flex-col items-center justify-center h-full animate-in fade-in zoom-in duration-500">
                         <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent mb-4">
                             Coming Soon
