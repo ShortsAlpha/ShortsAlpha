@@ -1,10 +1,18 @@
-import { Upload, Wand2, Calculator, ArrowRight, Video, Sparkles } from "lucide-react";
+import { Video, Sparkles, ArrowRight, Wand2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface DashboardProps {
     onSelectMode: (mode: 'remix' | 'create') => void;
 }
 
 export function Dashboard({ onSelectMode }: DashboardProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null;
     return (
         <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-7xl mx-auto px-6 animate-in fade-in duration-700">
             {/* Hero Section */}

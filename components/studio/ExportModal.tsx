@@ -141,7 +141,7 @@ export function ExportModal({ isOpen, status, detailedStatus, downloadUrl, error
                                 }
                             `}
                         >
-                            <Download className={`w-5 h-5 ${(status === 'finished' || status === 'success') ? 'animate-bounce' : ''}`} />
+                            <Download className="w-5 h-5" />
                             <span>Download Project</span>
                         </button>
                     </div>

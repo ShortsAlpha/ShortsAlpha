@@ -1,18 +1,21 @@
 "use client";
 import { useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { CreateSourceView } from "@/components/CreateSourceView";
 // AnalysisView removed
 import { StudioView } from "@/components/StudioView";
+import { AIGenerationView } from "@/components/AIGenerationView";
 import { RenderedVideos } from "@/components/RenderedVideos";
 
-type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings';
+type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings' | 'ai_generation';
 
 export default function Home() {
     console.log("DEBUG: StudioView Import:", StudioView); // Check if undefined
     const [activeView, setActiveView] = useState<ViewState>("dashboard");
     const [analysisResult, setAnalysisResult] = useState<any>(null);
+    const [importedAssets, setImportedAssets] = useState<any[]>([]); // Bridge for AI Assets
 
     const handleSelectMode = (mode: 'remix' | 'create') => {
         if (mode === 'create') {
@@ -36,7 +39,12 @@ export default function Home() {
     };
 
     return (
-        <main className="min-h-screen bg-zinc-950 text-white flex">
+        <main className="min-h-screen bg-zinc-950 text-white flex relative">
+            {/* Clerk User Button Overlay */}
+            <div className="absolute top-4 right-4 z-50">
+                <UserButton afterSignOutUrl="/" />
+            </div>
+
             {/* Left Sidebar */}
             <Sidebar activeView={activeView} setActiveView={(view) => setActiveView(view as ViewState)} />
 
@@ -60,12 +68,23 @@ export default function Home() {
                     <StudioView
                         analysisResult={analysisResult}
                         onBack={() => setActiveView("dashboard")}
+                        importedAssets={importedAssets}
                     />
                 )}
 
                 {/* Rendered Videos View */}
                 {activeView === 'rendered' && (
                     <RenderedVideos />
+                )}
+
+                {/* AI Generation View */}
+                {activeView === 'ai_generation' && (
+                    <AIGenerationView
+                        onAddToStudio={(asset) => {
+                            setImportedAssets(prev => [...prev, asset]);
+                            setActiveView('studio');
+                        }}
+                    />
                 )}
 
                 {/* Coming Soon Screens */}

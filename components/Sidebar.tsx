@@ -1,5 +1,5 @@
-"use client";
-import { LayoutDashboard, Clapperboard, Settings, Home, Video } from "lucide-react";
+import { useState, useEffect } from "react";
+import { LayoutDashboard, Clapperboard, Settings, Home, Video, Sparkles } from "lucide-react";
 
 interface SidebarProps {
     activeView: string;
@@ -7,12 +7,21 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const menuItems = [
         { id: "dashboard", label: "Home", icon: Home },
         { id: "studio", label: "Studio", icon: Clapperboard },
+        { id: "ai_generation", label: "AI Generation", icon: Sparkles },
         { id: "rendered", label: "Rendered Videos", icon: Video },
         { id: "stats", label: "Channel Stats", icon: LayoutDashboard }, // Using LayoutDashboard as placeholder for Stats
     ];
+
+    if (!mounted) return null;
 
     return (
         <div className="w-20 md:w-64 border-r border-zinc-800 bg-zinc-950 flex flex-col h-screen fixed left-0 top-0 z-50">

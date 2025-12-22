@@ -17,6 +17,7 @@ import axios from 'axios';
 interface StudioViewProps {
     analysisResult: any;
     onBack?: () => void;
+    importedAssets?: any[]; // New prop for assets coming from AI Generator
 }
 
 export interface Track {
@@ -39,7 +40,7 @@ interface HistoryState {
     text: Track[];
 }
 
-export function StudioView({ analysisResult, onBack }: StudioViewProps) {
+export function StudioView({ analysisResult, onBack, importedAssets }: StudioViewProps) {
     // --- Global State ---
     const [isLoading, setIsLoading] = useState(true); // Fake loading state
     const [videoTracks, setVideoTracks] = useState<Track[]>([]);
@@ -157,6 +158,21 @@ export function StudioView({ analysisResult, onBack }: StudioViewProps) {
 
     // Asset Management State (Lifted for Persistence)
     const [userAssets, setUserAssets] = useState<any[]>([]);
+
+    // Load Imported Assets (from AI Generator)
+    useEffect(() => {
+        if (importedAssets && importedAssets.length > 0) {
+            setUserAssets(prev => {
+                const combined = [...prev];
+                importedAssets.forEach(imp => {
+                    if (!combined.some(c => c.id === imp.id)) {
+                        combined.push(imp);
+                    }
+                });
+                return combined;
+            });
+        }
+    }, [importedAssets]);
 
     // --- Derived State ---
     const selectedClip = [...videoTracks, ...audioTracks, ...textTracks].find(c => c.id === selectedClipId);
