@@ -16,7 +16,7 @@ export default clerkMiddleware(async (auth, request) => {
         if (!userId) return redirectToSignIn()
     }
 }, {
-    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder_for_build_pass"
+    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_b2JsaWdpbmctd3Jlbi0wLmNsZXJrLmFjY291bnRzLmRldiQ"
 })
 
 export const config = {
