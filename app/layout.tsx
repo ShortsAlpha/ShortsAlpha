@@ -17,8 +17,10 @@ export default function RootLayout({
 }: {
     children: React.ReactNode
 }) {
+    const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "pk_test_placeholder_for_build_pass";
+
     return (
-        <ClerkProvider>
+        <ClerkProvider publishableKey={publishableKey}>
             <html lang="en" className="dark" suppressHydrationWarning>
                 <body className={inter.className}>
                     {children}
