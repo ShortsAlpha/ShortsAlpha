@@ -2,7 +2,7 @@ import { Video, Sparkles, ArrowRight, Wand2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface DashboardProps {
-    onSelectMode: (mode: 'remix' | 'create') => void;
+    onSelectMode: (mode: 'remix' | 'create' | 'chat') => void;
 }
 
 export function Dashboard({ onSelectMode }: DashboardProps) {
@@ -75,6 +75,31 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                     <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
                         <ArrowRight className="w-6 h-6 text-emerald-400" />
+                    </div>
+                </button>
+
+                {/* Option 3: Create Fake Chat (Full Width) */}
+                <button
+                    onClick={() => onSelectMode('chat')}
+                    className="md:col-span-2 group relative flex flex-row items-center p-8 h-64 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-blue-500/50 hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                    <div className="p-6 bg-zinc-800/50 rounded-2xl mr-8 group-hover:scale-110 group-hover:bg-blue-500/20 group-hover:text-blue-400 transition-all duration-300 shrink-0">
+                        <Wand2 className="w-10 h-10 text-zinc-300 group-hover:text-blue-400" />
+                    </div>
+
+                    <div className="relative z-10 space-y-2 flex-1">
+                        <h2 className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors">
+                            Fake Chat Story
+                        </h2>
+                        <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-lg">
+                            Turn text conversations into viral videos. Choose two voices, write the dialogue, and auto-generate the visuals.
+                        </p>
+                    </div>
+
+                    <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
+                        <ArrowRight className="w-6 h-6 text-blue-400" />
                     </div>
                 </button>
             </div>

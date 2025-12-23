@@ -4,12 +4,13 @@ import { UserButton } from "@clerk/nextjs";
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { CreateSourceView } from "@/components/CreateSourceView";
+import { FakeChatSource } from "@/components/sources/FakeChatSource";
 // AnalysisView removed
 import { StudioView } from "@/components/StudioView";
 import { AIGenerationView } from "@/components/AIGenerationView";
 import { RenderedVideos } from "@/components/RenderedVideos";
 
-type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings' | 'ai_generation';
+type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings' | 'ai_generation' | 'fake_chat';
 
 export default function Home() {
     console.log("DEBUG: StudioView Import:", StudioView); // Check if undefined
@@ -17,9 +18,11 @@ export default function Home() {
     const [analysisResult, setAnalysisResult] = useState<any>(null);
     const [importedAssets, setImportedAssets] = useState<any[]>([]); // Bridge for AI Assets
 
-    const handleSelectMode = (mode: 'remix' | 'create') => {
+    const handleSelectMode = (mode: 'remix' | 'create' | 'chat') => {
         if (mode === 'create') {
             setActiveView('create_source');
+        } else if (mode === 'chat') {
+            setActiveView('fake_chat');
         } else {
             // Remix / Create From Zero -> Go straight to Studio (Empty)
             setAnalysisResult({ script: [], metadata: {} }); // Reset/Empty
@@ -63,6 +66,13 @@ export default function Home() {
                 )}
 
                 {/* Analysis View Removed */}
+
+                {activeView === "fake_chat" && (
+                    <FakeChatSource
+                        onBack={() => setActiveView("dashboard")}
+                        onGenerate={handleScriptGenerated}
+                    />
+                )}
 
                 {activeView === "studio" && (
                     <StudioView

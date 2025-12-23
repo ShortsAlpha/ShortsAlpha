@@ -419,7 +419,17 @@ def render_video_logic(request_data: dict, r2_creds: dict):
         audio_clips = []
         
         # 1. Process Video Tracks
-        video_tracks.sort(key=lambda x: x.get('trackIndex', 0))
+        # SORTING - CRITICAL FOR LAYERING
+        # 1. Track Index (Lower = Bottom)
+        # 2. Type: Video (0) < Image (1). This ensures Background Videos are drawn BEFORE Data/Bubbles.
+        # 3. Start Time
+        video_tracks.sort(key=lambda x: (
+            x.get('trackIndex', 0),
+            0 if str(x.get('type', '')).lower() == 'video' else 1,
+            x.get('start', 0)
+        ))
+
+        print("Composite Sort Order:", [(t.get('type'), t.get('trackIndex')) for t in video_tracks])
 
         max_duration = 0
         
@@ -436,13 +446,15 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             
             # Robust Load
             try:
-                # Check if image
-                if local_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                # Check if image (explicit type or extension)
+                is_image = track_data.get('type') == 'image' or local_path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+                
+                if is_image:
                     print(f"Detected Image: {local_path}")
                     from moviepy.video.VideoClip import ImageClip
                     clip = ImageClip(local_path)
                     # Images need explicit duration
-                    if duration <= 0: duration = 5 # Default 5s for images if not specified
+                    if duration <= 0: duration = 5 
                     clip = clip.set_duration(duration)
                 else:
                     print(f"Loading Video: {local_path}")
@@ -455,12 +467,51 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                  if duration < clip.duration:
                      clip = clip.subclip(0, duration)
             
+            
             clip = clip.set_start(start_time)
-            # Resize Logic for 9:16
-            clip = clip.resize(height=1920) 
-            if clip.w < 1080:
-                clip = clip.resize(width=1080)
-            clip = clip.crop(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
+
+            # --- RESIZE & COMPOSE LOGIC ---
+            if is_image:
+                 # IMAGE / BUBBLE SPECS
+                 # Use explicit style/transform properties if available
+                 # StudioView likely sends: width, height, x, y, rotation, scale
+                 style = track_data.get('style', {})
+                 
+                 # 1. Size / Scale
+                 # Frontend usually operates in 1080p coordinate space
+                 target_w = track_data.get('width') or style.get('width')
+                 scale = track_data.get('scale', 1.0) # If user scaled it in studio
+                 
+                 if target_w:
+                     clip = clip.resize(width=float(target_w) * float(scale))
+                 elif scale != 1.0:
+                     clip = clip.resize(scale)
+
+                 # 2. Rotation
+                 rotation = track_data.get('rotation', 0)
+                 if rotation != 0:
+                     clip = clip.rotate(rotation)
+
+                 # 3. Position
+                 pos_x = track_data.get('x') 
+                 pos_y = track_data.get('y')
+                 
+                 # Fallback checks (sometimes in style object)
+                 if pos_x is None: pos_x = style.get('x') or style.get('left')
+                 if pos_y is None: pos_y = style.get('y') or style.get('top')
+
+                 if pos_x is not None and pos_y is not None:
+                     # Absolute Position
+                     clip = clip.set_position((float(pos_x), float(pos_y)))
+                 else:
+                     # Default Center
+                     clip = clip.set_position("center")
+            else:
+                # BACKGROUND VIDEO SPECS (9:16 FILL)
+                clip = clip.resize(height=1920) 
+                if clip.w < 1080:
+                    clip = clip.resize(width=1080)
+                clip = clip.crop(x1=clip.w/2 - 540, y1=0, width=1080, height=1920)
             
             # Apply Volume
             vol = track_data.get('volume', 1.0)
@@ -916,8 +967,8 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             codec='libx264', 
             audio_codec='aac',
             audio_fps=44100,
-            threads=4, # Multithreading enabled
-            preset='fast', 
+            threads=16, # Maximize CPU usage
+            preset='ultrafast', # Maximize Speed 
             ffmpeg_params=[
                 '-pix_fmt', 'yuv420p',
                 '-profile:v', 'baseline',

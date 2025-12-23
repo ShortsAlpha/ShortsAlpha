@@ -46,20 +46,30 @@ export function PlayerPanel({
     const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
 
     // Sync Playback & Time & Volume
+    // Sync Playback & Time & Volume
     useEffect(() => {
-        // Removed audioCtxRef resume logic
-
         // Sync Videos
         activeVideoClips.forEach(clip => {
             const el = videoRefs.current[clip.id];
-            if (el) {
+            if (el && el instanceof HTMLVideoElement) {
                 // Time Sync
                 const localTime = Math.max(0, currentTime - clip.start + (clip.offset || 0));
                 if (Math.abs(el.currentTime - localTime) > 0.5) {
                     el.currentTime = localTime;
                 }
 
-                if (isPlaying && el.paused) el.play().catch(() => { });
+                // Safe Play Logic
+                if (isPlaying && el.paused && !el.error) {
+                    const playPromise = el.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(e => {
+                            // Ignore common errors
+                            if (e.name === 'NotSupportedError') return;
+                            if (e.name === 'AbortError') return;
+                            console.warn("Video Play Failed", clip.id, e);
+                        });
+                    }
+                }
                 if (!isPlaying && !el.paused) el.pause();
 
                 // Volume
@@ -72,19 +82,18 @@ export function PlayerPanel({
             }
         });
 
-        // Sync Audio Tracks
+        // Sync Audio Tracks... (unchanged)
         audioTracks.forEach(track => {
+            // ... existing audio logic is fine ...
             const el = audioRefs.current[track.id];
             if (el) {
-                // Determine effective end time (handle NaN duration)
+                // ... existing commands ...
                 const duration = Number.isFinite(track.duration) ? track.duration : 300;
                 const endTime = track.start + duration;
 
                 if (currentTime >= track.start && currentTime < endTime) {
                     const localTime = Math.max(0, currentTime - track.start + (track.offset || 0));
-                    // Only sync if drift is significant to avoid stutter
                     if (Math.abs(el.currentTime - localTime) > 0.5) {
-                        // console.log(`[Audio Sync] Adjusting Time ${track.id}: ${el.currentTime} -> ${localTime}`);
                         el.currentTime = localTime;
                     }
 
@@ -104,15 +113,10 @@ export function PlayerPanel({
                 const trackIdx = track.trackIndex || 0;
                 const isTrackMuted = audioTrackState[trackIdx]?.muted;
                 const targetVol = isTrackMuted ? 0 : (track.volume ?? 1);
-
-                // DEBUG LOGGING
-                // if (isPlaying) console.log(`[Audio Debug] ${track.id} | Vol: ${targetVol} | Muted: ${el.muted} | Time: ${el.currentTime} | Paused: ${el.paused} | SRC: ${el.src}`);
-
                 el.volume = Math.min(1, Math.max(0, targetVol));
-            } else {
-                console.warn(`[Audio Debug] Ref missing for track ${track.id}`);
             }
         });
+
     }, [currentTime, isPlaying, activeVideoClips, audioTracks, videoTrackState, audioTrackState]);
 
 
@@ -250,44 +254,58 @@ export function PlayerPanel({
         };
     }, [draggingText, textTracks, onUpdateTextTracks]);
 
-
     return (
         <div
             ref={containerRef}
             className="w-full h-full relative cursor-pointer group bg-black"
         >
-            {/* 1. Video Layers */}
+            {/* 1. Video/Image Layers */}
             {activeVideoClips.length > 0 ? (
                 activeVideoClips.map((clip, index) => {
                     const trackIdx = clip.trackIndex || 0;
                     if (videoTrackState[trackIdx]?.hidden) return null;
 
                     const mk = `${clip.id}-${clip.url}`;
+                    const commonStyle = {
+                        zIndex: index,
+                        willChange: 'transform',
+                        transform: `
+                             scale(${clip.scale ?? 1}) 
+                             translate3d(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px, 0) 
+                             rotate(${clip.rotation ?? 0}deg)
+                         `
+                    };
+
+                    const isImage = clip.type === 'image' ||
+                        (clip.url && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(clip.url.split('?')[0]));
 
                     return (
                         <React.Fragment key={mk}>
-                            <video
-                                ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
-                                src={clip.url + "#t=0.001"}
-                                preload="metadata"
-                                className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
-                                style={{
-                                    zIndex: index,
-                                    willChange: 'transform',
-                                    transform: `
-                                        scale(${clip.scale ?? 1}) 
-                                        translate3d(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px, 0) 
-                                        rotate(${clip.rotation ?? 0}deg)
-                                    `
-                                }}
-                                loop={false}
-                                playsInline
-                                crossOrigin="anonymous"
-                                muted={false}
-                                onError={(e) => {
-                                    console.error("Video Error:", clip.url, e.currentTarget.error);
-                                }}
-                            />
+                            {isImage ? (
+                                <img
+                                    ref={(el) => { if (el) videoRefs.current[clip.id] = el as any; }}
+                                    src={clip.url}
+                                    className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-transform duration-75"
+                                    style={commonStyle}
+                                    alt="Visual Asset"
+                                    onError={(e) => console.warn("Image Load Error:", clip.id, clip.url)}
+                                />
+                            ) : clip.type === 'video' ? (
+                                <video
+                                    ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
+                                    src={clip.url + "#t=0.001"}
+                                    preload="metadata"
+                                    className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-75"
+                                    style={commonStyle}
+                                    loop={false}
+                                    playsInline
+                                    crossOrigin="anonymous"
+                                    muted={false}
+                                    onError={(e) => {
+                                        console.error("Video Error:", clip.id, clip.url, e.currentTarget.error);
+                                    }}
+                                />
+                            ) : null}
                         </React.Fragment>
                     );
                 })

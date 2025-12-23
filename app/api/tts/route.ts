@@ -3,7 +3,10 @@ import { s3Client, BUCKET_NAME } from "@/lib/s3Client";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 
+
+
 export const maxDuration = 60; // Allow longer timeout for backend generation
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
     try {
@@ -52,14 +55,15 @@ export async function POST(req: NextRequest) {
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error("Modal TTS API Error:", errText);
+            console.error("Modal TTS API Error:", response.status, errText);
             throw new Error(`Modal TTS API returned ${response.status}: ${errText}`);
         }
 
         const data = await response.json();
 
         if (data.status !== "success") {
-            throw new Error("Modal TTS Failed: " + JSON.stringify(data));
+            console.error("Modal TTS Application Error:", data);
+            throw new Error("Modal TTS Failed: " + (data.error || JSON.stringify(data)));
         }
 
         console.log("TTS: Generation Complete via Modal");

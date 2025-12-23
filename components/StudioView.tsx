@@ -23,7 +23,7 @@ interface StudioViewProps {
 export interface Track {
     id: string;
     url?: string;
-    type: 'video' | 'audio' | 'text';
+    type: 'video' | 'audio' | 'text' | 'image';
     start: number;
     duration: number;
     trackIndex?: number;
@@ -67,18 +67,26 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
 
         // Check if we have audioUrls that aren't in tracks yet
         const newAudioTracks: Track[] = [];
+        const newVideoTracks: Track[] = [];
         const newAssets: any[] = [];
-        let currentAudioTime = 0;
+        // Initialize start times from EXISTING tracks to prevent overlap
+        // If we are strictly appending, we start where the last track ended.
+        const maxAudioEnd = audioTracks.reduce((max, t) => Math.max(max, t.start + t.duration), 0);
+        const maxVideoEnd = videoTracks.reduce((max, t) => Math.max(max, t.start + t.duration), 0);
+
+        let currentAudioTime = maxAudioEnd;
+        let currentVideoTime = maxVideoEnd;
+
         let hasNewAudio = false;
+        let hasNewVideo = false;
 
         currentScript.forEach((segment: any, index: number) => {
+            // Handle Audio
             if (segment.audioUrl) {
-                // Prevent duplicates
                 const isAlreadyTrack = audioTracks.some(t => t.url === segment.audioUrl);
 
                 if (!isAlreadyTrack) {
                     hasNewAudio = true;
-                    // Improved duration estimation (approx 1 sec per 15 chars if metadata missing)
                     const estimatedDur = segment.text ? Math.max(2, segment.text.length / 15) : 5;
                     const duration = segment.duration || estimatedDur;
 
@@ -94,11 +102,11 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                         text: segment.text
                     });
 
-                    // Add to 'My Media' assets
+                    // Add Audio Asset
                     const isAssetExists = userAssets.some(a => a.url === segment.audioUrl);
                     if (!isAssetExists) {
                         newAssets.push({
-                            id: `asset_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Added ID
+                            id: `asset_aud_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                             key: segment.audioUrl,
                             url: segment.audioUrl,
                             type: 'audio',
@@ -110,14 +118,106 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                     currentAudioTime += duration;
                 }
             }
+
+            // Handle Visuals (Chat Bubbles / Images)
+            if (segment.imageUrl) {
+                // If it's a chat bubble, sync start time with audio
+                // In Fake Chat, audio and visual are 1:1, so we use the SAME duration and start time calc.
+                // NOTE: We assume 'index' matches for audio/video in this linear script.
+
+                const isAlreadyTrack = videoTracks.some(t => t.url === segment.imageUrl);
+
+                if (!isAlreadyTrack) {
+                    hasNewVideo = true;
+                    // ... (rest of add logic)
+                    // logic for Chat Bubbles based on speaker
+                    const bubbleWidth = 800; // fit within 1080p
+                    const isSpeakerB = segment.speaker === 'B'; // 'Sent' / Right
+                    const bubbleX = isSpeakerB ? (1080 - bubbleWidth - 50) : 50; // Right vs Left
+
+                    newVideoTracks.push({
+                        id: `visual_${index}_${Date.now()}`,
+                        url: segment.imageUrl,
+                        type: 'image',
+                        start: currentVideoTime,
+                        duration: duration,
+                        trackIndex: 0,
+                        volume: 0,
+                        sourceDuration: duration,
+                        // Layout Props
+                        width: bubbleWidth,
+                        height: 300, // Estimate, allows resize
+                        x: bubbleX,
+                        y: 800, // Slightly above center? Or Center. Let's try explicit Y if needed, or let Player center it. 
+                        // Actually Player defaults to 0,0 if not set? 
+                        // Better to use 'style' object for compatibility
+                        style: {
+                            width: bubbleWidth,
+                            x: bubbleX,
+                            y: 800, // Vertically centered-ish
+                            opacity: 1,
+                            scale: 1,
+                            rotation: 0
+                        }
+                    });
+
+                    // Add Visual Asset ... (rest of asset logic)
+                    const isAssetExists = userAssets.some(a => a.url === segment.imageUrl);
+                    if (!isAssetExists) {
+                        newAssets.push({
+                            id: `asset_vis_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                            key: segment.imageUrl,
+                            url: segment.imageUrl,
+                            type: 'video', // Asset Type
+                            LastModified: new Date(),
+                            Size: 0
+                        });
+                    }
+                }
+                // ALWAYS increment time to keep sync with script flow
+                currentVideoTime += duration;
+            } else if (segment.audioUrl && !segment.imageUrl) {
+                // If script has audio but NO visual, advance video time anyway to keep sync? 
+                // Or keep 0? For now, let's advance it to assume blank space or keep sync.
+                const duration = segment.duration || 5;
+                currentVideoTime += duration;
+            }
         });
 
         if (hasNewAudio) {
-            setAudioTracks(prev => [...prev, ...newAudioTracks]);
-            setUserAssets(prev => [...prev, ...newAssets]);
+            setAudioTracks(prev => {
+                const uniqueNew = newAudioTracks.filter(n => !prev.some(p => p.url === n.url));
+                return [...prev, ...uniqueNew];
+            });
+        }
 
-            // Adjust duration to fit new audio
-            setDuration(prev => Math.max(prev, currentAudioTime));
+        if (hasNewVideo) {
+            setVideoTracks(prev => {
+                const uniqueNew = newVideoTracks.filter(n => !prev.some(p => p.url === n.url));
+                return [...prev, ...uniqueNew];
+            });
+        }
+
+        if (hasNewAudio || hasNewVideo) {
+            setUserAssets(prev => {
+                // strict dedup
+                const existingUrls = new Set(prev.map(a => a.url));
+                const uniqueNew = newAssets.filter(a => !existingUrls.has(a.url));
+
+                // Double check for duplicates WITHIN newAssets itself
+                const finalNew: any[] = [];
+                const seenInBatch = new Set();
+
+                uniqueNew.forEach(a => {
+                    if (!seenInBatch.has(a.url)) {
+                        seenInBatch.add(a.url);
+                        finalNew.push(a);
+                    }
+                });
+
+                return [...prev, ...finalNew];
+            });
+            setDuration(prev => Math.max(prev, currentAudioTime, currentVideoTime));
         }
     }, [currentScript]);
 
@@ -444,6 +544,84 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
+    // --- Duration & Position Sync Logic (Chat Bubbles) ---
+    useEffect(() => {
+        // RIPPLE COMPACTION & SYNC
+        // This logic fixes the "Gaps" in the timeline by compacting Audio Track 0
+        // and forcing Video Track 0 (Bubbles) to match exactly.
+
+        const newVideoTracks = [...videoTracks];
+        const newAudioTracks = [...audioTracks];
+
+        // 1. Filter for Main Tracks (Index 0) and Sort by Start Time
+        // We need stable sorting to ensure we match the Nth bubble to Nth audio.
+        const mainAudioIndices = newAudioTracks
+            .map((t, i) => ({ ...t, originalIndex: i }))
+            .filter(t => (t.trackIndex === 0 || t.trackIndex === undefined) && t.type === 'audio')
+            .sort((a, b) => a.start - b.start);
+
+        const mainVideoIndices = newVideoTracks
+            .map((t, i) => ({ ...t, originalIndex: i }))
+            .filter(t => (t.trackIndex === 0 || t.trackIndex === undefined) && t.type === 'image')
+            .sort((a, b) => a.start - b.start);
+
+        let updatesNeeded = false;
+        let runningTime = 0;
+
+        // 2. Iterate and Ripple
+        // We iterate through the AUDIO tracks as the "Master" for timing.
+
+        for (let i = 0; i < mainAudioIndices.length; i++) {
+            const audRef = mainAudioIndices[i];
+            const aud = newAudioTracks[audRef.originalIndex];
+
+            // A. Compact Audio (Shift Start Time to Running Time)
+            // Only shift if gap is significant (> 0.1s) or if it overlaps (start < runningTime)
+            if (Math.abs(aud.start - runningTime) > 0.1) {
+                newAudioTracks[audRef.originalIndex] = { ...aud, start: runningTime };
+                updatesNeeded = true;
+            }
+
+            const currentAudioStart = runningTime;
+            const currentAudioDuration = aud.duration;
+
+            // B. Sync Matching Video (by Index)
+            if (i < mainVideoIndices.length) {
+                const vidRef = mainVideoIndices[i];
+                const vid = newVideoTracks[vidRef.originalIndex];
+
+                const startDiff = Math.abs(vid.start - currentAudioStart);
+                const durDiff = Math.abs(vid.duration - currentAudioDuration);
+
+                if (startDiff > 0.05 || durDiff > 0.05) {
+                    newVideoTracks[vidRef.originalIndex] = {
+                        ...vid,
+                        start: currentAudioStart,
+                        duration: currentAudioDuration
+                    };
+                    updatesNeeded = true;
+                }
+            }
+
+            // Advance Running Time
+            runningTime += currentAudioDuration;
+        }
+
+        if (updatesNeeded) {
+            console.log("Timeline Ripple Sync: Gaps Removed & Bubbles Aligned.");
+            setAudioTracks(newAudioTracks); // Update Audio Positions
+            setVideoTracks(newVideoTracks); // Update Video Positions & Durations
+        }
+
+    }, [audioTracks.length, videoTracks.length,
+    // We also want to trigger when durations change (e.g. metadata loaded)
+    audioTracks.map(t => t.duration).join(','),
+    // But prevent infinite loop if we just updated start times...
+    // The check 'Math.abs(aud.start - runningTime) > 0.1' prevents thrashing if already settled.
+    audioTracks.map(t => t.start).join(',')
+    ]);
+
+
     // --- Export ---
     const handleExport = async () => {
         setIsExportModalOpen(true);
@@ -451,9 +629,6 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
         setFinalDownloadUrl(null);
 
         const outputKey = `processed/export_${Date.now()}.mp4`;
-        // Hardcoded R2 Public Base URL (Using r2.dev for MVP as configured in env)
-        // Ideally should come from env but for client side we need NEXT_PUBLIC_...
-        // Assuming the R2_PUBLIC_URL from env finding earlier: https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev
         const publicDownloadUrl = `https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/${outputKey}`;
         const statusUrl = `https://pub-b1a4f641f6b640c9a03f5731f8362854.r2.dev/${outputKey}_status.json`;
 
@@ -521,8 +696,62 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
         };
 
         try {
-            // ... (Track cleaning logic identical to before) ...
-            // 1. Clean Text Tracks
+            // [PRE-FLIGHT] Upload Dynamic Assets (Chat Bubbles)
+            setDetailedStatus("Uploading assets...");
+
+            // 1. Process Video Tracks & Upload Bubbles if needed
+            const cleanVideoTracks = await Promise.all(videoTracks.map(async (t) => {
+                let finalUrl = t.url;
+
+                // Check if this is a dynamic URL (e.g. /api/render-bubble)
+                // and if it hasn't been uploaded yet (starts with /api)
+                if (t.url && t.url.startsWith('/api/')) {
+                    try {
+                        console.log(`Uploading dynamic asset: ${t.url}`);
+                        setDetailedStatus("Uploading chat bubbles...");
+
+                        // 1. Fetch Blob
+                        const blobRes = await fetch(t.url);
+                        if (!blobRes.ok) throw new Error("Failed to fetch bubble image");
+                        const blob = await blobRes.blob();
+
+                        // 2. Get Presigned URL
+                        const filename = `bubble_${t.id}.png`;
+                        const uploadRes = await axios.post('/api/upload', {
+                            filename,
+                            contentType: 'image/png',
+                            prefix: 'temp_bubbles'
+                        });
+
+                        const { uploadUrl, publicUrl } = uploadRes.data;
+
+                        // 3. PUT to S3/R2
+                        await axios.put(uploadUrl, blob, {
+                            headers: { 'Content-Type': 'image/png' }
+                        });
+
+                        console.log(`Uploaded ${t.id} to ${publicUrl}`);
+                        finalUrl = publicUrl;
+
+                    } catch (err) {
+                        console.error("Failed to upload dynamic asset:", err);
+                        // Fallback: Keep original URL (will likely fail on backend, but worth a shot)
+                    }
+                }
+
+                return {
+                    id: t.id,
+                    url: finalUrl, // Use the new Public URL
+                    start: t.start,
+                    duration: t.duration,
+                    source_duration: t.sourceDuration,
+                    volume: t.volume,
+                    track_index: t.trackIndex || 0,
+                    type: t.type // Preserve 'image' vs 'video'
+                };
+            }));
+
+            // 2. Clean Text Tracks
             const cleanTextTracks = textTracks.map(t => ({
                 id: t.id,
                 text: t.text,
@@ -544,18 +773,6 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                     y: t.style.y,
                     animation: t.style.animation // Pass animation type to backend
                 } : undefined
-            }));
-
-            // 2. Clean Video Tracks
-            const cleanVideoTracks = videoTracks.map(t => ({
-                id: t.id,
-                url: t.url,
-                start: t.start,
-                duration: t.duration,
-                source_duration: t.sourceDuration,
-                volume: t.volume,
-                track_index: t.trackIndex || 0,
-                type: 'video'
             }));
 
             // 3. Clean Audio Tracks

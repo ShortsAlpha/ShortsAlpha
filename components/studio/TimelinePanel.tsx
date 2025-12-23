@@ -113,9 +113,9 @@ export function TimelinePanel({
     const timelineWidth = visualDuration * PIXELS_PER_SECOND;
 
     // Drag & Drop State
-    // Format: { id: string, type: 'video' | 'audio', offsetSeconds: number }
-    const [draggedClipId, setDraggedClipId] = useState<{ id: string, type: 'video' | 'audio' | 'text', offsetSeconds: number } | null>(null);
-    const draggedClipRef = useRef<{ id: string, type: 'video' | 'audio', offsetSeconds: number } | null>(null);
+    // Format: { id: string, type: 'video' | 'audio' | 'text' | 'image', offsetSeconds: number }
+    const [draggedClipId, setDraggedClipId] = useState<{ id: string, type: 'video' | 'audio' | 'text' | 'image', offsetSeconds: number } | null>(null);
+    const draggedClipRef = useRef<{ id: string, type: 'video' | 'audio' | 'text' | 'image', offsetSeconds: number } | null>(null);
     // Sync ref with state is manual in handlers to ensure speed.
 
     // Scrubbing State
@@ -254,7 +254,7 @@ export function TimelinePanel({
 
     const [moving, setMoving] = useState<{
         id: string;
-        type: 'video' | 'audio' | 'text';
+        type: 'video' | 'audio' | 'text' | 'image';
         initialX: number;
         initialY: number;
         initialStart: number;
@@ -265,7 +265,7 @@ export function TimelinePanel({
     // Resize State
     const [resizing, setResizing] = useState<{
         id: string;
-        type: 'video' | 'audio' | 'text';
+        type: 'video' | 'audio' | 'text' | 'image';
         edge: 'start' | 'end';
         initialX: number;
         initialStart: number;
@@ -435,7 +435,7 @@ export function TimelinePanel({
                     }
 
                     // Update Tracks with Collision Check
-                    if (moving.type === 'video') {
+                    if (moving.type === 'video' || moving.type === 'image') {
                         const TRACK_HEIGHT = 64 + 4;
                         // Video Layers are rendered Reverse [2,1,0] (Top is 2, Bottom is 0) ?
                         // Wait, let's verify visual layers var.
@@ -594,7 +594,7 @@ export function TimelinePanel({
                         setSnapLine(null);
                     }
 
-                    if (resizing.type === 'video') {
+                    if (resizing.type === 'video' || resizing.type === 'image') {
                         const clipIndex = currentVideoTracks.findIndex(t => t.id === resizing.id);
                         if (clipIndex === -1) return;
                         const newTracks = [...currentVideoTracks];
@@ -729,7 +729,7 @@ export function TimelinePanel({
     }, [isScrubbing, onSeek, duration, PIXELS_PER_SECOND]);
 
     // Handle Start Move (Mouse/Touch Down on Clip Body)
-    const handleMoveStart = (e: React.MouseEvent | React.TouchEvent, clipId: string, type: 'video' | 'audio' | 'text', start: number, trackIndex: number) => {
+    const handleMoveStart = (e: React.MouseEvent | React.TouchEvent, clipId: string, type: 'video' | 'audio' | 'text' | 'image', start: number, trackIndex: number) => {
         // e.preventDefault(); // Don't prevent default immediately if we want scrolling, but for DND we usually do.
         e.stopPropagation();
 
@@ -753,7 +753,7 @@ export function TimelinePanel({
         onSelectClip && onSelectClip(clipId);
     };
 
-    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio' | 'text', edge: 'start' | 'end', start: number, duration: number, maxDuration?: number) => {
+    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'video' | 'audio' | 'text' | 'image', edge: 'start' | 'end', start: number, duration: number, maxDuration?: number) => {
         // IMPORTANT: Prevent scrolling or other gestures
         // e.preventDefault(); // React synthetic events might warn, but let's try just stopPropagation first.
         // Actually for direct touch manipulation we often want preventDefault to stop scrolling.
@@ -1349,7 +1349,7 @@ export function TimelinePanel({
                                                         className={`absolute top-0.5 bottom-0.5 rounded-sm overflow-hidden clip-item z-10 select-none group touch-pan-y
                                                     ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                     ${selectedClipId === clip.id ? 'ring-2 ring-white z-20' : ''}
-                                                    ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'} 
+                                                    ${(draggedClipId?.id === clip.id || moving?.id === clip.id) ? 'opacity-50' : 'opacity-100'} 
                                                     `}
                                                         // Setting opacity-0 on dragged item effectively "hides" the original while relying on Preview + Browser Drag Image
                                                         // Or we can keep it 0.5. User didn't like "hiding" maybe? 
@@ -1371,7 +1371,7 @@ export function TimelinePanel({
                                                         <div
                                                             className={`absolute -left-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
+                                                    `}
                                                             onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                             onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'start', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         >
@@ -1393,7 +1393,7 @@ export function TimelinePanel({
                                                         <div
                                                             className={`absolute -right-6 top-0 bottom-0 w-12 cursor-ew-resize z-50 flex items-center justify-center group/handle outline-none touch-none
                                                             ${selectedClipId === clip.id ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity
-                                                        `}
+                                                    `}
                                                             onMouseDown={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                             onTouchStart={(e) => handleResizeStart(e, clip.id, 'video', 'end', clip.start, clip.duration, (clip as any).sourceDuration)}
                                                         >
@@ -1410,7 +1410,7 @@ export function TimelinePanel({
                                 <div className="flex flex-col gap-1 pt-4 border-t border-[#333]">
                                     {audioLayers.map(trackIdx => (
                                         <div
-                                            key={`atrack-${trackIdx}`}
+                                            key={`atrack - ${trackIdx} `}
                                             className="h-12 relative w-full transition-colors bg-[#1e1e1e]/30 border-b border-[#333]/30 hover:bg-[#333]/20"
                                             onDragOver={(e) => handleDragOver(e, trackIdx)}
                                             onDrop={(e) => handleDrop(e, trackIdx)}
@@ -1420,8 +1420,8 @@ export function TimelinePanel({
                                                 <div
                                                     className="absolute top-0.5 bottom-0.5 rounded-sm bg-indigo-500/30 border border-indigo-400/50 z-20 pointer-events-none"
                                                     style={{
-                                                        left: `${dragPreview.start * PIXELS_PER_SECOND}px`,
-                                                        width: `${dragPreview.duration * PIXELS_PER_SECOND}px`,
+                                                        left: `${dragPreview.start * PIXELS_PER_SECOND} px`,
+                                                        width: `${dragPreview.duration * PIXELS_PER_SECOND} px`,
                                                     }}
                                                 >
                                                     <div className="text-[9px] text-indigo-200/50 px-2 pt-1 truncate">
@@ -1465,7 +1465,7 @@ export function TimelinePanel({
                                                 ${activeTool === 'razor' ? 'cursor-[url(/scissors.svg),_crosshair]' : 'cursor-move active:cursor-grabbing'}
                                                 ${selectedClipId === clip.id ? 'ring-2 ring-indigo-300 z-20' : ''}
                                                     ${draggedClipId?.id === clip.id ? 'opacity-50' : 'opacity-100'}
-                                                    `}
+                                                `}
                                                         style={{
                                                             left: `${clip.start * PIXELS_PER_SECOND}px`,
                                                             width: `${clip.duration * PIXELS_PER_SECOND}px`,
@@ -1504,7 +1504,7 @@ export function TimelinePanel({
                                                                         className="flex-1 bg-indigo-500 rounded-t-[1px]"
                                                                         style={{
                                                                             height: `${Math.max(10, peak * 100)}%`,
-                                                                            opacity: peak < 0.01 ? 0.3 : 1 // Show quiet sounds as semi-transparent instead of hidden
+                                                                            opacity: peak < 0.01 ? 0.3 : 1
                                                                         }}
                                                                     />
                                                                 ))
@@ -1517,7 +1517,7 @@ export function TimelinePanel({
 
                                                         <div className="relative px-2 h-full flex items-start pt-1 pointer-events-none">
                                                             <span className="text-[9px] font-medium text-indigo-100 truncate shadow-black drop-shadow-md">
-                                                                {clip.title || `Audio ${trackIdx}`}
+                                                                {clip.title || `Audio ${trackIdx} `}
                                                             </span>
                                                         </div>
 
