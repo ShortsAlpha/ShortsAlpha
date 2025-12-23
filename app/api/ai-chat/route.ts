@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         Rules:
         1. Two speakers: "A" (Sender/Right) and "B" (Receiver/Left).
         2. Keep messages short and punchy (text message style).
-        3. Use slang, abbreviations, and emojis where appropriate for the context.
+        3. Use slang and abbreviations (text message style). Do NOT use emotes or emojis (they break TTS).
         4. Total length: 10-15 messages.
         5. Output strictly valid JSON array of objects.
         

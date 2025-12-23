@@ -69,6 +69,17 @@ async def generate_speech(request: TTSRequest):
         communicate = edge_tts.Communicate(request.text, request.voice, rate=rate_str)
         await communicate.save(output_file)
         
+        # Get Duration
+        from moviepy.editor import AudioFileClip
+        try:
+            clip = AudioFileClip(output_file)
+            duration = clip.duration
+            clip.close()
+            print(f"Generated Audio Duration: {duration}s")
+        except Exception as e:
+            print(f"Failed to get duration: {e}")
+            duration = 5 # Fallback
+        
         # Upload to R2
         s3 = boto3.client('s3',
             endpoint_url=f"https://{request.r2_account_id}.r2.cloudflarestorage.com",
@@ -84,7 +95,7 @@ async def generate_speech(request: TTSRequest):
         if os.path.exists(output_file):
             os.remove(output_file)
             
-        return {"status": "success", "key": request.output_key}
+        return {"status": "success", "key": request.output_key, "duration": duration}
 
     except Exception as e:
         print(f"TTS Error: {str(e)}")

@@ -68,8 +68,12 @@ export async function POST(req: NextRequest) {
 
         console.log("TTS: Generation Complete via Modal");
 
-        // Return same public URL
-        return NextResponse.json({ url: publicUrl, cached: false });
+        // Return same public URL with duration
+        return NextResponse.json({
+            url: publicUrl,
+            cached: false,
+            duration: data.duration // Pass duration from backend
+        });
 
     } catch (error: any) {
         console.error("TTS Error:", error);

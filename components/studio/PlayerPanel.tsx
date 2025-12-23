@@ -332,10 +332,11 @@ export function PlayerPanel({
                 const y = (style.y ?? 0.8) * 100;
                 const isSelected = clip.id === selectedClipId;
 
-                // Generate smooth stroke using shadow hack
-                const strokeShadow = style.strokeWidth ? generateSmoothStroke(style.strokeWidth, style.stroke) : '';
-                const dropShadow = style.shadow && style.shadow !== 'none' ? style.shadow : '';
-                const combinedShadow = [strokeShadow, dropShadow].filter(Boolean).join(', ') || 'none';
+                // Generate stroke using native WebkitTextStroke
+                const webkitTextStroke = style.strokeWidth ? `${style.strokeWidth}px ${style.stroke}` : '0px transparent';
+
+                // Keep Drop Shadow logic
+                const dropShadow = style.shadow && style.shadow !== 'none' ? style.shadow : 'none';
 
                 // Animation Class Map
                 const animMap: Record<string, string> = {
@@ -365,7 +366,10 @@ export function PlayerPanel({
                             fontStyle: style.fontStyle || 'normal',
                             textDecoration: style.textDecoration || 'none',
                             textTransform: style.textTransform || 'none',
-                            textShadow: combinedShadow,
+                            // Use native stroke with paint-order to simulate 'outside' stroke
+                            WebkitTextStroke: webkitTextStroke,
+                            paintOrder: 'stroke fill',
+                            textShadow: dropShadow,
                             backgroundColor: style.backgroundColor || 'transparent',
                             borderRadius: style.borderRadius || '0px',
                             padding: style.padding || '0px',

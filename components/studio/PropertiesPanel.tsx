@@ -215,22 +215,30 @@ export function PropertiesPanel({ selectedClip, onUpdateClip, onApplyToAll }: Pr
                                 <label className="text-[9px] text-zinc-600 block mb-1">Font Size</label>
                                 <input
                                     type="number"
-                                    value={selectedClip.style?.fontSize || 60}
-                                    onChange={(e) => onUpdateClip(selectedClip.id, {
-                                        style: { ...selectedClip.style, fontSize: parseInt(e.target.value) }
-                                    })}
-                                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs text-white"
+                                    value={selectedClip.style?.fontSize ?? ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                        onUpdateClip(selectedClip.id, {
+                                            style: { ...selectedClip.style, fontSize: val }
+                                        });
+                                    }}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs text-white placeholder:text-zinc-700"
+                                    placeholder="60"
                                 />
                             </div>
                             <div>
                                 <label className="text-[9px] text-zinc-600 block mb-1">Stroke Width</label>
                                 <input
                                     type="number"
-                                    value={selectedClip.style?.strokeWidth || 6}
-                                    onChange={(e) => onUpdateClip(selectedClip.id, {
-                                        style: { ...selectedClip.style, strokeWidth: parseInt(e.target.value) }
-                                    })}
-                                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs text-white"
+                                    value={selectedClip.style?.strokeWidth ?? ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                                        onUpdateClip(selectedClip.id, {
+                                            style: { ...selectedClip.style, strokeWidth: val }
+                                        });
+                                    }}
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs text-white placeholder:text-zinc-700"
+                                    placeholder="6"
                                 />
                             </div>
                         </div>

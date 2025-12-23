@@ -145,6 +145,11 @@ export function TimelinePanel({
             const newTracks = audioTracks.filter(t => t.id !== selectedClipId);
             onUpdateAudioTracks && onUpdateAudioTracks(newTracks);
         }
+        // Try Text
+        else if (textTracks?.some(t => t.id === selectedClipId)) {
+            const newTracks = textTracks.filter(t => t.id !== selectedClipId);
+            onUpdateTextTracks && onUpdateTextTracks(newTracks);
+        }
 
         onSelectClip && onSelectClip(null);
         setContextMenu(null);
@@ -1198,7 +1203,15 @@ export function TimelinePanel({
                     >
                         <div
                             className="min-h-full relative flex flex-col min-w-full"
-                            style={{ width: `${timelineWidth}px` }}
+                            style={{
+                                width: `${timelineWidth}px`,
+                                // Dynamic Height Calculation to prevent Playhead cutoff
+                                minHeight: `${(textLayers.length * 52) + // h-12 + gap
+                                    (videoLayers.length * 68) + // h-16 + gap
+                                    (audioLayers.length * 52) + // h-12 + gap (assuming h-12 for audio)
+                                    200 // Padding
+                                    }px`
+                            }}
                         >
                             {/* Old Ruler Removed */}
 

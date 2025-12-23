@@ -4,7 +4,7 @@ import { PlayerPanel } from "./studio/PlayerPanel";
 import { TimelinePanel } from "./studio/TimelinePanel";
 import { PropertiesPanel } from "./studio/PropertiesPanel";
 import { SubtitlePanel } from "./studio/SubtitlePanel";
-import { VoiceoverPanel } from "./studio/VoiceoverPanel";
+import { TextPanel } from "./studio/TextPanel";
 import { AnimationPanel } from "./studio/AnimationPanel";
 import { ExportModal, ExportStatus } from "./studio/ExportModal";
 import { WhatsNewModal } from "./WhatsNewModal";
@@ -148,7 +148,7 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                         type: 'image',
                         start: currentVideoTime,
                         duration: duration,
-                        trackIndex: 0,
+                        trackIndex: 1,
                         volume: 0,
                         sourceDuration: duration,
                         // Layout Props
@@ -235,7 +235,7 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
 
     // Selection & UI State
     const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock' | 'Voiceover' | 'Animations'>('Media');
+    const [activeTab, setActiveTab] = useState<'Media' | 'Subtitle' | 'Stock' | 'Text' | 'Animations'>('Media');
 
     // Track State (Muted/Hidden/Locked)
     const [videoTrackState, setVideoTrackState] = useState<Record<number, { muted: boolean, hidden: boolean, locked: boolean }>>({});
@@ -455,6 +455,26 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
         });
         setTextTracks(newTracks);
         saveToHistory(videoTracks, audioTracks, newTracks);
+    };
+
+    const handleAddText = (text: string, stylePreset: any) => {
+        const newTrack: Track = {
+            id: `text_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            type: 'text',
+            text: text,
+            start: currentTime,
+            duration: 3,
+            trackIndex: 0,
+            style: {
+                ...stylePreset,
+                // Ensure default positioning if not in preset
+                x: stylePreset.x ?? 0.5,
+                y: stylePreset.y ?? 0.5,
+                fontSize: stylePreset.fontSize ?? 60,
+                color: stylePreset.color ?? '#ffffff'
+            }
+        };
+        handleUpdateTextTracks([...textTracks, newTrack]);
     };
 
     // --- Asset Management ---
@@ -929,7 +949,7 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                             <button onClick={() => setActiveTab('Media')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Media' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Media</button>
                             <button onClick={() => setActiveTab('Stock')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Stock' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Stock Library</button>
                             <button onClick={() => setActiveTab('Subtitle')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Subtitle' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Subtitles</button>
-                            <button onClick={() => setActiveTab('Voiceover')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Voiceover' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Voiceover</button>
+                            <button onClick={() => setActiveTab('Text')} className={`px-3 py-1.5 rounded-md text-xs font-medium ${activeTab === 'Text' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>Text</button>
                         </div>
                         <div className="flex-1 min-h-0">
                             {activeTab === 'Media' && (
@@ -960,9 +980,9 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                                     isGenerating={isGeneratingSubtitles}
                                 />
                             )}
-                            {activeTab === 'Voiceover' && (
-                                <VoiceoverPanel
-                                    onAddTrack={(url, type) => handleAddAsset(url, type)}
+                            {activeTab === 'Text' && (
+                                <TextPanel
+                                    onAddText={handleAddText}
                                 />
                             )}
                         </div>

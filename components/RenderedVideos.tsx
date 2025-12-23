@@ -77,7 +77,7 @@ export function RenderedVideos() {
                     <p className="text-sm">Render a video in the Studio to see it here.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {videos.map((vid) => (
                         <div
                             key={vid.key}
@@ -87,10 +87,19 @@ export function RenderedVideos() {
                             <div className="aspect-[9/16] bg-black relative group-hover:ring-1 group-hover:ring-indigo-500/50 transition-all">
                                 {vid.output_url ? (
                                     <video
-                                        src={vid.output_url}
-                                        controls
-                                        className="w-full h-full object-contain"
-                                        poster="/placeholder-poster.png" // Optional
+                                        src={`${vid.output_url}#t=0.1`}
+                                        controls={false}
+                                        muted
+                                        loop
+                                        preload="metadata"
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                        onMouseEnter={(e) => e.currentTarget.play().catch(() => { })}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.pause();
+                                            e.currentTarget.currentTime = 0.1; // Reset to frame 0.1
+                                        }}
+                                        poster="/placeholder-poster.png"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-zinc-600 bg-zinc-950">
@@ -115,8 +124,8 @@ export function RenderedVideos() {
                                     </div>
                                     {vid.virality_score && (
                                         <span className={`px-2 py-1 rounded-md text-xs font-bold border ${vid.virality_score >= 80 ? "bg-green-500/10 text-green-400 border-green-500/50" :
-                                                vid.virality_score >= 50 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/50" :
-                                                    "bg-red-500/10 text-red-400 border-red-500/50"
+                                            vid.virality_score >= 50 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/50" :
+                                                "bg-red-500/10 text-red-400 border-red-500/50"
                                             }`}>
                                             {vid.virality_score} Score
                                         </span>
@@ -134,16 +143,44 @@ export function RenderedVideos() {
 
                                 {/* Actions */}
                                 {vid.output_url && (
-                                    <a
-                                        href={vid.output_url}
-                                        download
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                    <button
+                                        onClick={async (e) => {
+                                            e.preventDefault();
+                                            const btn = e.currentTarget;
+                                            const originalText = btn.innerHTML;
+                                            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Downloading...`;
+
+                                            try {
+                                                const response = await fetch(vid.output_url!);
+                                                if (!response.ok) throw new Error('Download failed');
+
+                                                const blob = await response.blob();
+                                                const url = window.URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.style.display = 'none';
+                                                a.href = url;
+                                                // Extract filename from URL or use default
+                                                const filename = vid.output_url!.split('/').pop() || `video-${vid.key}.mp4`;
+                                                a.download = filename;
+
+                                                document.body.appendChild(a);
+                                                a.click();
+
+                                                window.URL.revokeObjectURL(url);
+                                                document.body.removeChild(a);
+                                            } catch (err) {
+                                                console.error("Download Error:", err);
+                                                alert("Download failed. Opening in new tab instead.");
+                                                window.open(vid.output_url, '_blank');
+                                            } finally {
+                                                btn.innerHTML = originalText;
+                                            }
+                                        }}
                                         className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors text-sm"
                                     >
                                         <Download className="w-4 h-4" />
                                         Download Video
-                                    </a>
+                                    </button>
                                 )}
                             </div>
                         </div>

@@ -161,7 +161,7 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
                     speaker: msg.speaker,
                     audioUrl: ttsRes.data.url,
                     imageUrl: bubbleUrl,
-                    duration: 5
+                    duration: ttsRes.data.duration || 5 // Sync visual with audio
                 });
             }
 

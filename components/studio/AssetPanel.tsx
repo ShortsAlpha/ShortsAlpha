@@ -50,12 +50,16 @@ export function AssetPanel({
 
     const [isUploading, setIsUploading] = useState(false);
 
+    const [isLoadingStock, setIsLoadingStock] = useState(false);
+
     // FETCH STOCK ASSETS
     useEffect(() => {
         if (mode === 'stock') {
+            setIsLoadingStock(true);
             axios.get('/api/stock')
                 .then(res => setStockAssets(res.data.assets || []))
-                .catch(err => console.error("Failed to fetch stock:", err));
+                .catch(err => console.error("Failed to fetch stock:", err))
+                .finally(() => setIsLoadingStock(false));
         }
     }, [mode]);
 
@@ -181,8 +185,13 @@ export function AssetPanel({
     };
 
     // Helper to render asset grid
-    const renderGrid = (items: any[], emptyMessage: string) => (
-        items.length === 0 ? (
+    const renderGrid = (items: any[], emptyMessage: string, loadingMessage = "Loading assets...") => (
+        isLoadingStock && mode === 'stock' ? (
+            <div className="flex flex-col items-center justify-center h-40 text-zinc-500 space-y-2">
+                <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs">{loadingMessage}</span>
+            </div>
+        ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-zinc-500 space-y-2 border border-dashed border-zinc-800 rounded-xl">
                 <FolderOpen className="w-8 h-8 opacity-50" />
                 <span className="text-xs">{emptyMessage}</span>
@@ -261,8 +270,11 @@ export function AssetPanel({
                                         src={vid.url + "#t=0.5"}
                                         preload="metadata"
                                         className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity duration-300"
-                                        onMouseOver={e => e.currentTarget.play()}
-                                        onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0.5; }}
+                                        onMouseOver={e => e.currentTarget.play().catch(() => { })}
+                                        onMouseOut={e => {
+                                            e.currentTarget.pause();
+                                            e.currentTarget.currentTime = 0.5;
+                                        }}
                                         muted
                                         playsInline
                                     />
@@ -411,7 +423,7 @@ export function AssetPanel({
                                 {stockTab === 'visual' ? <Video className="w-3 h-3" /> : <Music className="w-3 h-3" />}
                                 {headerTitle}
                             </h3>
-                            {renderGrid(items, stockTab === 'visual' ? "No stock videos found" : "No stock audio found")}
+                            {renderGrid(items, stockTab === 'visual' ? "No stock videos found" : "No stock audio found", stockTab === 'visual' ? "Loading visuals..." : "Loading audio...")}
                         </div>
                     );
                 })()}
