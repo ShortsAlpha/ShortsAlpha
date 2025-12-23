@@ -32,6 +32,13 @@ export interface Track {
     volume?: number;
     offset?: number;
     sourceDuration?: number;
+    // Layout Props
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
+    rotation?: number;
+    scale?: number;
 }
 
 interface HistoryState {
