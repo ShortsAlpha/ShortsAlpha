@@ -27,13 +27,13 @@ interface TimelinePanelProps {
     onToggleTrackState?: (type: 'video' | 'audio', index: number, field: 'muted' | 'hidden' | 'locked') => void;
 
     // Mobile Drag Props
-    externalDragItem?: { url: string, type: 'video' | 'audio' | 'text', title: string } | null;
+    externalDragItem?: { url: string, type: 'video' | 'audio' | 'text' | 'image', title: string } | null;
     onExternalDragEnd?: () => void;
 }
 
 // Helper to get duration (Defined outside to avoid dependency loops)
-const getMediaDuration = (url: string, type: 'video' | 'audio' | 'text'): Promise<number> => {
-    if (type === 'text') return Promise.resolve(5); // Default text duration
+const getMediaDuration = (url: string, type: 'video' | 'audio' | 'text' | 'image'): Promise<number> => {
+    if (type === 'text' || type === 'image') return Promise.resolve(5); // Default text/image duration
     return new Promise((resolve) => {
         const el = document.createElement(type);
         el.src = url;
@@ -125,7 +125,7 @@ export function TimelinePanel({
     const [activeTool, setActiveTool] = useState<'select' | 'razor'>('select');
 
     // Context Menu State
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, clipId: string, type: 'video' | 'audio' | 'text' } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, clipId: string, type: 'video' | 'audio' | 'text' | 'image' } | null>(null);
 
     // Razor Hover State (for guide line)
     const [razorLineX, setRazorLineX] = useState<number | null>(null);
@@ -276,7 +276,7 @@ export function TimelinePanel({
 
 
     // Live Preview State (Where the clip will drop)
-    const [dragPreview, setDragPreview] = useState<{ trackIndex: number, start: number, id: string, type: 'video' | 'audio' | 'text', duration: number } | null>(null);
+    const [dragPreview, setDragPreview] = useState<{ trackIndex: number, start: number, id: string, type: 'video' | 'audio' | 'text' | 'image', duration: number } | null>(null);
 
     // Snap Line State
     const [snapLine, setSnapLine] = useState<number | null>(null);
