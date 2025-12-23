@@ -1,8 +1,8 @@
-import { Video, Sparkles, ArrowRight, Wand2 } from "lucide-react";
+import { Video, Sparkles, ArrowRight, Wand2, Layers } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface DashboardProps {
-    onSelectMode: (mode: 'remix' | 'create' | 'chat') => void;
+    onSelectMode: (mode: 'remix' | 'create' | 'chat' | 'split') => void;
 }
 
 export function Dashboard({ onSelectMode }: DashboardProps) {
@@ -78,28 +78,54 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
                     </div>
                 </button>
 
-                {/* Option 3: Create Fake Chat (Full Width) */}
+                {/* Option 3: Create Fake Chat */}
                 <button
                     onClick={() => onSelectMode('chat')}
-                    className="md:col-span-2 group relative flex flex-row items-center p-8 h-64 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-blue-500/50 hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left"
+                    className="group relative flex flex-col items-start p-8 h-80 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-blue-500/50 hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                    <div className="p-6 bg-zinc-800/50 rounded-2xl mr-8 group-hover:scale-110 group-hover:bg-blue-500/20 group-hover:text-blue-400 transition-all duration-300 shrink-0">
-                        <Wand2 className="w-10 h-10 text-zinc-300 group-hover:text-blue-400" />
+                    <div className="p-4 bg-zinc-800/50 rounded-2xl mb-6 group-hover:scale-110 group-hover:bg-blue-500/20 group-hover:text-blue-400 transition-all duration-300">
+                        <Wand2 className="w-8 h-8 text-zinc-300 group-hover:text-blue-400" />
                     </div>
 
-                    <div className="relative z-10 space-y-2 flex-1">
+                    <div className="relative z-10 space-y-2">
                         <h2 className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors">
                             Fake Chat Story
                         </h2>
-                        <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-lg">
-                            Turn text conversations into viral videos. Choose two voices, write the dialogue, and auto-generate the visuals.
+                        <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-sm">
+                            Turn text conversations into viral videos. Choose voices & auto-generate visuals.
                         </p>
                     </div>
 
                     <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
                         <ArrowRight className="w-6 h-6 text-blue-400" />
+                    </div>
+                </button>
+
+                {/* Option 4: Split Gameplay (New) */}
+                <button
+                    // @ts-ignore - 'split' mode will be added to interface in next step
+                    onClick={() => onSelectMode('split')}
+                    className="group relative flex flex-col items-start p-8 h-80 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-orange-500/50 hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                    <div className="p-4 bg-zinc-800/50 rounded-2xl mb-6 group-hover:scale-110 group-hover:bg-orange-500/20 group-hover:text-orange-400 transition-all duration-300">
+                        <Layers className="w-8 h-8 text-zinc-300 group-hover:text-orange-400" />
+                    </div>
+
+                    <div className="relative z-10 space-y-2">
+                        <h2 className="text-3xl font-bold text-white group-hover:text-orange-300 transition-colors">
+                            Gameplay Split
+                        </h2>
+                        <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-sm">
+                            Combine your video with viral gameplay clips (Minecraft, GTA) for max retention.
+                        </p>
+                    </div>
+
+                    <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
+                        <ArrowRight className="w-6 h-6 text-orange-400" />
                     </div>
                 </button>
             </div>

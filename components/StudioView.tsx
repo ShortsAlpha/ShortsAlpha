@@ -68,8 +68,46 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
     const [currentScript, setCurrentScript] = useState(analysisResult?.script || []);
     const [voiceoverAudio, setVoiceoverAudio] = useState<string | null>(null);
 
+    // Prevent double-init in StrictMode
+    const hasInitializedSplitScreen = useRef(false);
+
     // --- Auto-Load Voiceovers from Script ---
     useEffect(() => {
+        // --- HANDLE SPLIT SCREEN MODE ---
+        if (analysisResult?.metadata?.projectType === 'split_screen') {
+            if (hasInitializedSplitScreen.current) return; // Prevent duplicate run
+
+            const { userVideo, gamePlay } = analysisResult.metadata;
+            if (userVideo && gamePlay) {
+                hasInitializedSplitScreen.current = true;
+                const tracks: Track[] = [userVideo, gamePlay];
+                const assets: any[] = [
+                    {
+                        id: `asset_${Date.now()}_1`,
+                        key: userVideo.url,
+                        url: userVideo.url,
+                        type: 'video',
+                        LastModified: new Date(),
+                        Size: 0
+                    },
+                    {
+                        id: `asset_${Date.now()}_2`,
+                        key: gamePlay.url,
+                        url: gamePlay.url,
+                        type: 'video',
+                        LastModified: new Date(),
+                        Size: 0
+                    }
+                ];
+
+                // Force set
+                setVideoTracks(tracks);
+                setUserAssets(prev => [...prev, ...assets]);
+                setDuration(Math.max(userVideo.duration || 15, gamePlay.duration || 15));
+            }
+            return;
+        }
+
         if (!currentScript || !Array.isArray(currentScript)) return;
 
         // Check if we have audioUrls that aren't in tracks yet
@@ -226,7 +264,7 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
             });
             setDuration(prev => Math.max(prev, currentAudioTime, currentVideoTime));
         }
-    }, [currentScript]);
+    }, [currentScript, analysisResult]);
 
     // Playback State
     const [isPlaying, setIsPlaying] = useState(false);
@@ -773,8 +811,16 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                     duration: t.duration,
                     source_duration: t.sourceDuration,
                     volume: t.volume,
-                    track_index: t.trackIndex || 0,
-                    type: t.type // Preserve 'image' vs 'video'
+                    trackIndex: t.trackIndex || 0, // Fix Case for Backend Sorting
+                    type: t.type, // Preserve 'image' vs 'video'
+                    // Pass Layout Props (Fixed: Missing in previous version)
+                    style: t.style,
+                    width: t.width,
+                    height: t.height,
+                    x: t.x,
+                    y: t.y,
+                    scale: t.scale,
+                    rotation: t.rotation
                 };
             }));
 
@@ -1003,6 +1049,7 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                                 audioTrackState={audioTrackState}
                                 textTracks={textTracks}
                                 onUpdateTextTracks={handleUpdateTextTracks}
+                                onUpdateClip={handleUpdateClip}
                                 selectedClipId={selectedClipId}
                                 onSelectClip={setSelectedClipId}
                             />

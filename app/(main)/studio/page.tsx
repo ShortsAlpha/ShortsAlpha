@@ -5,12 +5,13 @@ import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { CreateSourceView } from "@/components/CreateSourceView";
 import { FakeChatSource } from "@/components/sources/FakeChatSource";
+import { SplitScreenSetup } from "@/components/sources/SplitScreenSetup";
 // AnalysisView removed
 import { StudioView } from "@/components/StudioView";
 import { AIGenerationView } from "@/components/AIGenerationView";
 import { RenderedVideos } from "@/components/RenderedVideos";
 
-type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings' | 'ai_generation' | 'fake_chat';
+type ViewState = 'dashboard' | 'create_source' | 'studio' | 'rendered' | 'stats' | 'settings' | 'ai_generation' | 'fake_chat' | 'split_setup';
 
 export default function Home() {
     console.log("DEBUG: StudioView Import:", StudioView); // Check if undefined
@@ -18,11 +19,13 @@ export default function Home() {
     const [analysisResult, setAnalysisResult] = useState<any>(null);
     const [importedAssets, setImportedAssets] = useState<any[]>([]); // Bridge for AI Assets
 
-    const handleSelectMode = (mode: 'remix' | 'create' | 'chat') => {
+    const handleSelectMode = (mode: 'remix' | 'create' | 'chat' | 'split') => {
         if (mode === 'create') {
             setActiveView('create_source');
         } else if (mode === 'chat') {
             setActiveView('fake_chat');
+        } else if (mode === 'split') {
+            setActiveView('split_setup');
         } else {
             // Remix / Create From Zero -> Go straight to Studio (Empty)
             setAnalysisResult({ script: [], metadata: {} }); // Reset/Empty
@@ -36,7 +39,8 @@ export default function Home() {
         setAnalysisResult({
             script: script.script,
             virality_score: script.virality_score,
-            keywords: script.keywords || []
+            keywords: script.keywords || [],
+            metadata: script.metadata || {} // Pass metadata (Critical for Split Screen)
         });
         setActiveView('studio');
     };
@@ -69,6 +73,13 @@ export default function Home() {
 
                 {activeView === "fake_chat" && (
                     <FakeChatSource
+                        onBack={() => setActiveView("dashboard")}
+                        onGenerate={handleScriptGenerated}
+                    />
+                )}
+
+                {activeView === "split_setup" && (
+                    <SplitScreenSetup
                         onBack={() => setActiveView("dashboard")}
                         onGenerate={handleScriptGenerated}
                     />

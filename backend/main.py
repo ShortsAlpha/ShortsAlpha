@@ -474,29 +474,62 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                 print(f"Failed to load clip {local_path}: {e}")
                 continue
             
+            # Helper for Percentage Parsing
+            def parse_dimension(val, total_pixels):
+                if val is None: return None
+                if isinstance(val, (int, float)): return float(val)
+                val_str = str(val).strip()
+                if val_str.endswith('%'):
+                    try:
+                        pct = float(val_str[:-1])
+                        return (pct / 100.0) * total_pixels
+                    except:
+                        return None
+                try:
+                    return float(val_str.replace('px', ''))
+                except:
+                    return None
+
             if duration > 0 and not isinstance(clip, (ImageClip if 'ImageClip' in locals() else type(None))):
                  if duration < clip.duration:
                      clip = clip.subclip(0, duration)
             
-            
             clip = clip.set_start(start_time)
 
             # --- RESIZE & COMPOSE LOGIC ---
-            if is_image:
-                 # IMAGE / BUBBLE SPECS
-                 # Use explicit style/transform properties if available
-                 # StudioView likely sends: width, height, x, y, rotation, scale
+            # Determine if this track needs Custom Layout (Image, Bubble, or Split Screen Video)
+            # Conditions:
+            # 1. It is an Image
+            # 2. It has explicit 'style' props
+            # 3. It has explicit 'width'/'height' props
+            # 4. It has 'x' or 'y' props
+            has_custom_layout = is_image or track_data.get('style') or track_data.get('width') or track_data.get('x') or track_data.get('y')
+
+            if has_custom_layout:
+                 # IMAGE / BUBBLE / SPLIT SCREEN SPECS
                  style = track_data.get('style', {})
                  
                  # 1. Size / Scale
-                 # Frontend usually operates in 1080p coordinate space
-                 target_w = track_data.get('width') or style.get('width')
-                 scale = track_data.get('scale', 1.0) # If user scaled it in studio
+                 target_w = parse_dimension(track_data.get('width') or style.get('width'), 1080)
+                 target_h = parse_dimension(track_data.get('height') or style.get('height'), 1920)
                  
-                 if target_w:
-                     clip = clip.resize(width=float(target_w) * float(scale))
+                 scale = float(track_data.get('scale', 1.0) or 1.0)
+
+                 # Resize Strategy
+                 if target_w is not None and target_h is not None:
+                      # If both provided, force resize (distort? or fit?)
+                      # MoviePy resize(newsize=(w,h)) distorts.
+                      # We typically want to cover or contain. 
+                      # For Split Screen, we usually want to resize exactly to the box.
+                      # But let's check aspect ratio.
+                      # If user says width=100%, height=30%, they likely mean "Fit this box"
+                      clip = clip.resize(newsize=(target_w, target_h))
+                 elif target_w is not None:
+                      clip = clip.resize(width=target_w * scale)
+                 elif target_h is not None:
+                      clip = clip.resize(height=target_h * scale)
                  elif scale != 1.0:
-                     clip = clip.resize(scale)
+                      clip = clip.resize(scale)
 
                  # 2. Rotation
                  rotation = track_data.get('rotation', 0)
@@ -504,21 +537,29 @@ def render_video_logic(request_data: dict, r2_creds: dict):
                      clip = clip.rotate(rotation)
 
                  # 3. Position
-                 pos_x = track_data.get('x') 
-                 pos_y = track_data.get('y')
+                 pos_x_val = track_data.get('x') 
+                 pos_y_val = track_data.get('y')
                  
-                 # Fallback checks (sometimes in style object)
-                 if pos_x is None: pos_x = style.get('x') or style.get('left')
-                 if pos_y is None: pos_y = style.get('y') or style.get('top')
+                 # Fallback
+                 if pos_x_val is None: pos_x_val = style.get('x') or style.get('left')
+                 if pos_y_val is None: pos_y_val = style.get('y') or style.get('top')
+                 
+                 # Parse Percentages for Position
+                 pos_x = parse_dimension(pos_x_val, 1080)
+                 pos_y = parse_dimension(pos_y_val, 1920)
 
                  if pos_x is not None and pos_y is not None:
                      # Absolute Position
-                     clip = clip.set_position((float(pos_x), float(pos_y)))
+                     clip = clip.set_position((pos_x, pos_y))
+                 elif pos_x is not None:
+                     clip = clip.set_position((pos_x, "center"))
+                 elif pos_y is not None:
+                     clip = clip.set_position(("center", pos_y))
                  else:
                      # Default Center
                      clip = clip.set_position("center")
             else:
-                # BACKGROUND VIDEO SPECS (9:16 FILL)
+                # BACKGROUND VIDEO SPECS (Legacy Fallback for Fullscreen)
                 clip = clip.resize(height=1920) 
                 if clip.w < 1080:
                     clip = clip.resize(width=1080)
