@@ -1,10 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
+import { auth } from "@clerk/nextjs/server";
+import { getPlanLimits } from "@/lib/limits";
 import https from "https";
 
 export async function POST(request: NextRequest) {
     try {
+        const { userId, sessionClaims } = await auth();
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // 1. Get User Plan
+        const plan = (sessionClaims?.publicMetadata as any)?.plan || 'free';
+        const limits = getPlanLimits(plan);
+
         const body = await request.json();
+
+        // 2. Enforce Resolution
+        // If user requests 1080p/4k but plan is 720p, downgrade it
+        if (limits.maxResolution === '720p' && (body.width > 720 || body.height > 1280)) {
+            // Forcing 720p
+            const aspect = body.width / body.height;
+            if (aspect > 1) { // Landscape
+                body.width = 1280;
+                body.height = 720;
+            } else { // Portrait
+                body.width = 720;
+                body.height = 1280;
+            }
+        } else if (limits.maxResolution === '1080p' && (body.width > 1080 || body.height > 1920)) {
+            // Forcing 1080p (No 4K for Pro)
+            const aspect = body.width / body.height;
+            if (aspect > 1) {
+                body.width = 1920;
+                body.height = 1080;
+            } else {
+                body.width = 1080;
+                body.height = 1920;
+            }
+        }
+
+        // 3. Enforce Watermark
+        // If plan requires watermark, ensure we inject it (or backend handles it)
+        // For now, we pass a flag to the backend
+        if (limits.watermark) {
+            body.add_watermark = true;
+        } else {
+            body.add_watermark = false;
+        }
 
         // Validation
         if (!body.video_tracks && !body.audio_tracks) {
