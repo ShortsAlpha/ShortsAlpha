@@ -70,9 +70,10 @@ export default function PricingPage() {
             } else {
                 throw new Error("No URL returned");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error("Failed to start checkout. Please try again.");
+            const msg = error.response?.data?.error || "Failed to start checkout. Please try again.";
+            toast.error(msg);
             setLoading(null);
         }
     };

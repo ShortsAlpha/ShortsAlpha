@@ -24,8 +24,10 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ url: checkout.data.attributes.url });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("[LEMON_CHECKOUT]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        // Return the actual error message for debugging
+        const errorMessage = error.message || "Internal Server Error";
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
