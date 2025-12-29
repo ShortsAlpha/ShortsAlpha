@@ -128,7 +128,7 @@ export function PlayerPanel({
                     el.style.transform = `scale(${clip.scale ?? 1}) rotate(${clip.rotation ?? 0}deg)`;
 
                     // --- DEBUG TEXT OVERLAY ---
-                    let debugOverlay = el.parentElement?.querySelector(`.debug-overlay-${clip.id}`);
+                    let debugOverlay = el.parentElement?.querySelector(`.debug-overlay-${clip.id}`) as HTMLDivElement | null;
                     if (!debugOverlay) {
                         debugOverlay = document.createElement('div');
                         debugOverlay.className = `debug-overlay debug-overlay-${clip.id}`;
