@@ -1,8 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Dashboard } from "@/components/Dashboard";
-// Sources removed - they have their own pages now
 import { StudioView } from "@/components/StudioView";
 import { AIGenerationView } from "@/components/AIGenerationView";
 import { RenderedVideos } from "@/components/RenderedVideos";
@@ -10,7 +8,7 @@ import { useProject } from "@/components/providers/project-provider";
 
 type ViewState = 'studio' | 'rendered' | 'stats' | 'settings' | 'ai_generation';
 
-export default function Home() {
+function StudioPageContent() {
     console.log("DEBUG: StudioView Import:", StudioView);
 
     const searchParams = useSearchParams();
@@ -74,5 +72,13 @@ export default function Home() {
                 )}
             </div>
         </main>
+    );
+}
+
+export default function StudioPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen bg-zinc-950 text-white">Loading Studio...</div>}>
+            <StudioPageContent />
+        </Suspense>
     );
 }
