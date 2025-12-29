@@ -271,7 +271,7 @@ export const AuthComponent: React.FC<{ initialMode?: 'signin' | 'signup' }> = ({
                             // Attempt to send email code
                             await signIn!.prepareFirstFactor({
                                 strategy: "email_code",
-                                emailAddressId: emailCodeFactor.emailAddressId,
+                                emailAddressId: (emailCodeFactor as any).emailAddressId,
                             });
                             setPendingVerification(true);
                             // We are reusing the verification UI, but for sign-in we need to handle it in handleVerify
