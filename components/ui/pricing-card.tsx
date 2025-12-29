@@ -17,6 +17,7 @@ export interface PricingTier {
     cta: string
     highlighted?: boolean
     popular?: boolean
+    variantId?: string
     onClick?: () => void
 }
 
