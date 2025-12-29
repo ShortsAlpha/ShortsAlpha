@@ -101,7 +101,7 @@ export function SettingsView() {
                         <div className="flex justify-between p-3 bg-black/20 rounded-lg">
                             <span className="text-zinc-400">Render Limit</span>
                             <span className="font-bold text-white">
-                                {limits.maxDailyRenders ? `${limits.maxDailyRenders}/day` : `${limits.maxWeeklyRenders}/week`}
+                                {'maxDailyRenders' in limits ? `${(limits as any).maxDailyRenders}/day` : `${limits.maxWeeklyRenders}/week`}
                             </span>
                         </div>
                         <div className="flex justify-between p-3 bg-black/20 rounded-lg">
