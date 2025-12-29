@@ -113,13 +113,13 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                 <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
                     Auto Face Tracking
                 </h1>
-                <p className="text-xl text-zinc-400 max-w-2xl mx-auto">
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                     Upload a podcast or interview. We'll detect faces and create vertical shorts automatically.
                 </p>
             </div>
 
             {/* Main Card */}
-            <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-xl">
+            <div className="w-full bg-card border border-border rounded-3xl p-8 backdrop-blur-xl shadow-sm">
 
                 {/* Step 1: Upload */}
                 <div className="space-y-8">
@@ -138,8 +138,8 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                             <>
                                 <FileVideo className="w-12 h-12 text-pink-400" />
                                 <div className="text-center">
-                                    <h3 className="text-lg font-medium text-white">{file.name}</h3>
-                                    <p className="text-zinc-500">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
+                                    <h3 className="text-lg font-medium text-foreground">{file.name}</h3>
+                                    <p className="text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
                                 </div>
                                 <button className="text-sm text-pink-400 hover:underline" onClick={(e) => {
                                     e.stopPropagation();
@@ -150,8 +150,8 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                             <>
                                 <Upload className="w-12 h-12 text-zinc-500 group-hover:text-zinc-400 transition-colors" />
                                 <div className="text-center">
-                                    <h3 className="text-lg font-medium text-white">Upload Podcast / Video</h3>
-                                    <p className="text-zinc-500">MP4, MOV up to 500MB</p>
+                                    <h3 className="text-lg font-medium text-foreground">Upload Podcast / Video</h3>
+                                    <p className="text-muted-foreground">MP4, MOV up to 500MB</p>
                                 </div>
                             </>
                         )}
@@ -160,8 +160,8 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                     {/* Step 2: Layout Selection */}
                     {file && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                            <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                                <Layout className="w-4 h-4 text-zinc-400" />
+                            <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
+                                <Layout className="w-4 h-4 text-muted-foreground" />
                                 Select Format
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
@@ -174,8 +174,8 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                                     <div className="flex gap-2 mb-2">
                                         <div className="w-4 h-6 rounded-sm bg-zinc-600"></div>
                                     </div>
-                                    <div className="font-bold text-white">Active Speaker Focus</div>
-                                    <div className="text-xs text-zinc-500 mt-1">Cuts to whoever is speaking.</div>
+                                    <div className="font-bold text-foreground">Active Speaker Focus</div>
+                                    <div className="text-xs text-muted-foreground mt-1">Cuts to whoever is speaking.</div>
                                 </button>
                                 <button
                                     onClick={() => setLayout('split')}
@@ -187,8 +187,8 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                                         <div className="w-4 h-3 rounded-sm bg-zinc-600"></div>
                                         <div className="w-4 h-3 rounded-sm bg-zinc-600"></div>
                                     </div>
-                                    <div className="font-bold text-white">Split Screen Grid</div>
-                                    <div className="text-xs text-zinc-500 mt-1">Shows multiple faces at once.</div>
+                                    <div className="font-bold text-foreground">Split Screen Grid</div>
+                                    <div className="text-xs text-muted-foreground mt-1">Shows multiple faces at once.</div>
                                 </button>
                             </div>
                         </div>
@@ -196,8 +196,8 @@ export function AutoShortsView({ onBack, onAnalyze }: AutoShortsViewProps) {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="flex items-center justify-between mt-8 pt-6 border-t border-zinc-800">
-                    <button onClick={onBack} className="text-zinc-400 hover:text-white transition">
+                <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
+                    <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition">
                         Back
                     </button>
                     <button

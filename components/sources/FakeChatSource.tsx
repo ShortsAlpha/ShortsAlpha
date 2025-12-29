@@ -189,7 +189,7 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
 
     if (step === 'generating') {
         return (
-            <div className="flex flex-col items-center justify-center h-[600px] space-y-6 text-white animate-in fade-in">
+            <div className="flex flex-col items-center justify-center h-[600px] space-y-6 text-foreground animate-in fade-in">
                 <div className="relative">
                     <div className="w-20 h-20 rounded-full border-4 border-zinc-800 border-t-indigo-500 animate-spin"></div>
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -198,7 +198,7 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
                 </div>
                 <div className="text-center space-y-2">
                     <h2 className="text-2xl font-bold">Gemini is Working...</h2>
-                    <p className="text-zinc-400 font-mono">{progress}</p>
+                    <p className="text-muted-foreground font-mono">{progress}</p>
                 </div>
             </div>
         );
@@ -208,30 +208,30 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
         return (
             <div className="max-w-4xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500 py-12">
                 <div className="flex items-center gap-4 mb-8">
-                    <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                    <button onClick={onBack} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <h1 className="text-3xl font-bold text-white">Choose Your Path</h1>
+                    <h1 className="text-3xl font-bold text-foreground">Choose Your Path</h1>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Manual */}
-                    <button onClick={handleSelectManual} className="group relative p-8 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-zinc-500/50 hover:bg-zinc-900/60 transition-all text-left">
-                        <div className="p-4 bg-zinc-800/50 rounded-2xl mb-6 w-fit group-hover:scale-110 transition-transform">
-                            <MessageSquare className="w-8 h-8 text-zinc-300" />
+                    <button onClick={handleSelectManual} className="group relative p-8 rounded-3xl bg-card border border-border hover:border-zinc-500/50 hover:bg-accent/50 transition-all text-left shadow-sm">
+                        <div className="p-4 bg-zinc-100 dark:bg-zinc-800/50 rounded-2xl mb-6 w-fit group-hover:scale-110 transition-transform">
+                            <MessageSquare className="w-8 h-8 text-zinc-500 dark:text-zinc-300" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Write Yourself</h2>
-                        <p className="text-zinc-400">Manually type out the conversation message by message.</p>
+                        <h2 className="text-2xl font-bold text-foreground mb-2">Write Yourself</h2>
+                        <p className="text-muted-foreground">Manually type out the conversation message by message.</p>
                     </button>
 
                     {/* AI */}
-                    <button onClick={handleSelectAI} className="group relative p-8 rounded-3xl bg-zinc-900/40 border border-white/5 hover:border-indigo-500/50 hover:bg-zinc-900/60 transition-all text-left">
+                    <button onClick={handleSelectAI} className="group relative p-8 rounded-3xl bg-card border border-border hover:border-indigo-500/50 hover:bg-accent/50 transition-all text-left shadow-sm">
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl" />
                         <div className="p-4 bg-indigo-500/20 rounded-2xl mb-6 w-fit group-hover:scale-110 transition-transform">
                             <User className="w-8 h-8 text-indigo-400" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-indigo-300">Generate with Gemini</h2>
-                        <p className="text-zinc-400">Give a topic, and let AI write the perfect viral script for you.</p>
+                        <h2 className="text-2xl font-bold text-foreground mb-2 group-hover:text-indigo-500 dark:group-hover:text-indigo-300">Generate with Gemini</h2>
+                        <p className="text-muted-foreground">Give a topic, and let AI write the perfect viral script for you.</p>
                     </button>
                 </div>
             </div>
@@ -244,23 +244,23 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
         return (
             <div className="max-w-3xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-500 py-12">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setStep('choice')} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
+                    <button onClick={() => setStep('choice')} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <h1 className="text-3xl font-bold text-white">What's the story about?</h1>
+                    <h1 className="text-3xl font-bold text-foreground">What's the story about?</h1>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Input Area */}
-                    <div className="lg:col-span-3 bg-zinc-900/50 border border-white/5 rounded-2xl p-6 space-y-4">
+                    <div className="lg:col-span-3 bg-card border border-border rounded-2xl p-6 space-y-4 shadow-sm">
                         <div className="flex justify-between items-center px-1">
-                            <label className="text-sm font-medium text-zinc-400">Your Prompt</label>
+                            <label className="text-sm font-medium text-muted-foreground">Your Prompt</label>
                             <div className="text-xs text-indigo-400 font-medium px-2 py-0.5 bg-indigo-500/10 rounded border border-indigo-500/20">Using Gemini 2.5 Pro</div>
                         </div>
                         <textarea
                             value={aiTopic}
                             onChange={(e) => setAiTopic(e.target.value)}
-                            className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white focus:outline-none focus:border-indigo-500 text-lg resize-none placeholder:text-zinc-600"
+                            className="w-full h-32 bg-background border border-input rounded-xl p-4 text-foreground focus:outline-none focus:border-indigo-500 text-lg resize-none placeholder:text-muted-foreground"
                             placeholder="Describe your conversation concept here..."
                             autoFocus
                         />
@@ -276,7 +276,7 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
                     {/* Suggestions Area */}
                     <div className="lg:col-span-3 space-y-3">
                         <div className="flex items-center justify-between px-1">
-                            <span className="text-sm font-medium text-zinc-500">Need inspiration? Try these:</span>
+                            <span className="text-sm font-medium text-muted-foreground">Need inspiration? Try these:</span>
                             <button onClick={refreshSuggestions} className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
                                 <RotateCw className="w-3 h-3" /> Refresh
                             </button>
@@ -287,14 +287,10 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
                                     key={i}
                                     onClick={() => {
                                         setAiTopic(hook);
-                                        // Optional: Auto-generate? User said "tıklayınca generate ekranına geçsin" which might mean populate OR populate+submit.
-                                        // Let's populate for safety so they can edit.
-                                        // "Generate ekranı" here means THIS screen populated, or the "Generating..." spinner?
-                                        // Assuming populate. user can click Generate.
                                     }}
-                                    className="text-left p-4 rounded-xl bg-zinc-900/30 border border-white/5 hover:bg-zinc-800 hover:border-indigo-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all group"
+                                    className="text-left p-4 rounded-xl bg-card border border-border hover:bg-accent/50 hover:border-indigo-500/30 hover:shadow-lg hover:-translate-y-0.5 transition-all group"
                                 >
-                                    <p className="text-sm text-zinc-300 group-hover:text-white leading-relaxed">"{hook}"</p>
+                                    <p className="text-sm text-muted-foreground group-hover:text-foreground leading-relaxed">"{hook}"</p>
                                 </button>
                             ))}
                         </div>
@@ -321,13 +317,13 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => setStep('choice')}
-                        className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                        className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Editor</h1>
-                        <p className="text-zinc-400 text-sm">Review and tweak your script</p>
+                        <h1 className="text-2xl font-bold text-foreground">Editor</h1>
+                        <p className="text-muted-foreground text-sm">Review and tweak your script</p>
                     </div>
                 </div>
 
@@ -342,22 +338,22 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
             </div>
 
             {/* Conversation Editor */}
-            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6 space-y-6">
+            <div className="bg-card border border-border rounded-2xl p-6 space-y-6 shadow-sm">
 
                 <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium text-zinc-400">Story Title</label>
+                    <label className="text-sm font-medium text-muted-foreground">Story Title</label>
                     <input
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="bg-background border border-input rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-indigo-500 transition-colors"
                         placeholder="e.g. The Wrong Number"
                     />
                 </div>
 
                 <div className="space-y-3">
-                    <label className="text-sm font-medium text-zinc-400 flex justify-between items-center">
+                    <label className="text-sm font-medium text-muted-foreground flex justify-between items-center">
                         <span>Messages</span>
-                        <span className="text-xs text-zinc-500">{messages.length} lines</span>
+                        <span className="text-xs text-muted-foreground">{messages.length} lines</span>
                     </label>
 
                     <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
@@ -382,7 +378,7 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
                                     <textarea
                                         value={msg.text}
                                         onChange={(e) => updateMessage(msg.id, e.target.value)}
-                                        className={`w-full bg-black/40 border rounded-xl px-4 py-3 text-white focus:outline-none transition-colors resize-none h-[52px] ${msg.speaker === 'A' ? 'border-white/10 focus:border-zinc-500' : 'border-indigo-500/30 focus:border-indigo-500'
+                                        className={`w-full bg-background border rounded-xl px-4 py-3 text-foreground focus:outline-none transition-colors resize-none h-[52px] ${msg.speaker === 'A' ? 'border-input focus:border-zinc-500' : 'border-indigo-500/30 focus:border-indigo-500'
                                             }`}
                                         placeholder="Type a message..."
                                     />
@@ -400,7 +396,7 @@ export function FakeChatSource({ onBack, onGenerate }: FakeChatSourceProps) {
 
                     <button
                         onClick={addMessage}
-                        className="w-full py-3 border-2 border-dashed border-zinc-800 hover:border-zinc-700 rounded-xl text-zinc-500 hover:text-zinc-300 flex items-center justify-center gap-2 transition-all hover:bg-zinc-900/50"
+                        className="w-full py-3 border-2 border-dashed border-border hover:border-zinc-400 dark:hover:border-zinc-700 rounded-xl text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 transition-all hover:bg-accent/50"
                     >
                         <Plus className="w-4 h-4" /> Add Message
                     </button>

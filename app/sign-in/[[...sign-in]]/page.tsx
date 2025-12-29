@@ -11,7 +11,7 @@ export default function Page() {
 
     useEffect(() => {
         if (isLoaded && userId) {
-            router.replace("/studio");
+            router.replace("/home");
         }
     }, [isLoaded, userId, router]);
 

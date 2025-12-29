@@ -11,6 +11,9 @@ export const metadata: Metadata = {
 }
 
 import { Toaster } from 'sonner'
+import { ThemeProvider } from "@/components/theme-provider"
+
+import { ProjectProvider } from "@/components/providers/project-provider"
 
 export default function RootLayout({
     children,
@@ -21,10 +24,19 @@ export default function RootLayout({
 
     return (
         <ClerkProvider publishableKey={publishableKey}>
-            <html lang="en" className="dark" suppressHydrationWarning>
+            <html lang="en" suppressHydrationWarning>
                 <body className={inter.className}>
-                    {children}
-                    <Toaster theme="dark" position="bottom-right" />
+                    <ThemeProvider
+                        attribute="class"
+                        defaultTheme="dark"
+                        enableSystem
+                        disableTransitionOnChange
+                    >
+                        <ProjectProvider>
+                            {children}
+                            <Toaster theme="system" position="bottom-right" />
+                        </ProjectProvider>
+                    </ThemeProvider>
                 </body>
             </html>
         </ClerkProvider>

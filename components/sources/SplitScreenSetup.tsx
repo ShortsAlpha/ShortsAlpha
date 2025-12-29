@@ -174,19 +174,19 @@ export function SplitScreenSetup({ onBack, onGenerate }: SplitScreenSetupProps) 
                     <ChevronLeft className="w-6 h-6" />
                 </button>
                 <div>
-                    <h1 className="text-3xl font-bold flex items-center gap-3">
+                    <h1 className="text-3xl font-bold flex items-center gap-3 text-foreground">
                         <Layers className="w-8 h-8 text-orange-500" />
                         Split Screen Creator
                     </h1>
-                    <p className="text-zinc-400">Upload your content and choose a viral gameplay background.</p>
+                    <p className="text-muted-foreground">Upload your content and choose a viral gameplay background.</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
 
                 {/* LEFT: Upload User Video */}
-                <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 flex flex-col">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <div className="bg-card border border-border rounded-3xl p-6 flex flex-col shadow-sm">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
                         <Video className="w-5 h-5 text-indigo-400" />
                         1. Your Content
                     </h2>
@@ -217,8 +217,8 @@ export function SplitScreenSetup({ onBack, onGenerate }: SplitScreenSetupProps) 
                                     <Upload className="w-8 h-8 text-zinc-400" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-white">Click to upload or drag & drop</p>
-                                    <p className="text-sm text-zinc-500 mt-2">MP4, MOV (Max 50MB)</p>
+                                    <p className="font-bold text-foreground">Click to upload or drag & drop</p>
+                                    <p className="text-sm text-muted-foreground mt-2">MP4, MOV (Max 50MB)</p>
                                 </div>
                             </div>
                         )}
@@ -226,8 +226,8 @@ export function SplitScreenSetup({ onBack, onGenerate }: SplitScreenSetupProps) 
                 </div>
 
                 {/* RIGHT: Select Gameplay */}
-                <div className="bg-zinc-900/50 border border-white/5 rounded-3xl p-6 flex flex-col">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <div className="bg-card border border-border rounded-3xl p-6 flex flex-col shadow-sm">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
                         <Gamepad className="w-5 h-5 text-orange-400" />
                         2. Gameplay Background
                     </h2>

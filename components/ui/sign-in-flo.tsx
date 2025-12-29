@@ -257,7 +257,7 @@ export const AuthComponent: React.FC<{ initialMode?: 'signin' | 'signup' }> = ({
 
                         if (result.status === "complete") {
                             await setActive!({ session: result.createdSessionId });
-                            router.push("/studio");
+                            router.push("/home");
                         } else {
                             console.log(result);
                             setError("Something went wrong during sign in.");
@@ -283,7 +283,7 @@ export const AuthComponent: React.FC<{ initialMode?: 'signin' | 'signup' }> = ({
                     }
                 } else if (identification.status === "complete") {
                     await setActive!({ session: identification.createdSessionId });
-                    router.push("/studio");
+                    router.push("/home");
                 }
             }
         } catch (err: any) {
@@ -317,7 +317,7 @@ export const AuthComponent: React.FC<{ initialMode?: 'signin' | 'signup' }> = ({
                 });
                 if (completeSignUp.status === "complete") {
                     await setActiveSignUp!({ session: completeSignUp.createdSessionId });
-                    router.push("/studio");
+                    router.push("/home");
                 } else {
                     console.log(JSON.stringify(completeSignUp, null, 2));
                     setError("Verification incomplete.");
@@ -331,7 +331,7 @@ export const AuthComponent: React.FC<{ initialMode?: 'signin' | 'signup' }> = ({
 
                 if (result.status === "complete") {
                     await setActive!({ session: result.createdSessionId });
-                    router.push("/studio");
+                    router.push("/home");
                 } else {
                     console.log(result);
                     setError("Verification incomplete.");
@@ -351,7 +351,7 @@ export const AuthComponent: React.FC<{ initialMode?: 'signin' | 'signup' }> = ({
             await signIn!.authenticateWithRedirect({
                 strategy,
                 redirectUrl: "/sso-callback",
-                redirectUrlComplete: "/studio",
+                redirectUrlComplete: "/home",
             });
         } catch (err: any) {
             console.error(err);

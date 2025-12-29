@@ -6,6 +6,7 @@ import { AIStorySource } from "./sources/AIStorySource";
 import { RedditSource } from "./sources/RedditSource";
 import { CustomTextSource } from "./sources/CustomTextSource";
 import { VoiceSelector } from "./VoiceSelector";
+import { GlowCard } from "@/components/ui/spotlight-card";
 
 interface CreateSourceViewProps {
     onBack: () => void;
@@ -83,7 +84,7 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
 
     if (isGeneratingAudio) {
         return (
-            <div className="flex flex-col items-center justify-center h-[600px] space-y-6 text-white animate-in fade-in">
+            <div className="flex flex-col items-center justify-center h-[600px] space-y-6 text-foreground animate-in fade-in">
                 <div className="relative">
                     <div className="w-20 h-20 rounded-full border-4 border-zinc-800 border-t-indigo-500 animate-spin"></div>
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -92,7 +93,7 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
                 </div>
                 <div className="text-center space-y-2">
                     <h2 className="text-2xl font-bold">Creating Voiceover</h2>
-                    <p className="text-zinc-400 font-mono">{progress}</p>
+                    <p className="text-muted-foreground font-mono">{progress}</p>
                 </div>
             </div>
         );
@@ -118,58 +119,61 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={onBack}
-                    className="p-2 hover:bg-zinc-900 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">Select Content Source</h1>
-                    <p className="text-zinc-400">Where should we get the story from?</p>
+                    <h1 className="text-3xl font-bold text-foreground tracking-tight">Select Content Source</h1>
+                    <p className="text-muted-foreground">Where should we get the story from?</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* AI Story Generator */}
-                <button
-                    onClick={() => setSelectedSource('ai')}
-                    className="group flex flex-col items-center justify-center gap-4 p-8 h-64 bg-zinc-900/40 border border-white/5 hover:border-indigo-500/50 hover:bg-zinc-900 rounded-2xl transition-all"
-                >
-                    <div className="p-4 bg-indigo-500/10 rounded-full group-hover:bg-indigo-500/20 text-indigo-400 transition-colors">
-                        <Bot className="w-8 h-8" />
-                    </div>
-                    <div className="text-center space-y-1">
-                        <h3 className="text-lg font-semibold text-white">AI Generator</h3>
-                        <p className="text-sm text-zinc-500">Generate unique stories from a prompt</p>
-                    </div>
-                </button>
+                <div onClick={() => setSelectedSource('ai')} className="cursor-pointer group">
+                    <GlowCard glowColor="blue" customSize={true} className="h-80 w-full">
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
+                            <div className="h-20 w-20 flex items-center justify-center bg-indigo-500/10 rounded-2xl group-hover:bg-indigo-500/20 text-indigo-400 transition-colors group-hover:scale-110 duration-300">
+                                <Bot className="w-10 h-10" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-foreground tracking-tight">AI Generator</h3>
+                                <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Generate unique stories from a prompt</p>
+                            </div>
+                        </div>
+                    </GlowCard>
+                </div>
 
                 {/* Reddit Scraper */}
-                <button
-                    onClick={() => setSelectedSource('reddit')}
-                    className="group flex flex-col items-center justify-center gap-4 p-8 h-64 bg-zinc-900/40 border border-white/5 hover:border-orange-500/50 hover:bg-zinc-900 rounded-2xl transition-all"
-                >
-                    <div className="p-4 bg-orange-500/10 rounded-full group-hover:bg-orange-500/20 text-orange-400 transition-colors">
-                        <MessageSquare className="w-8 h-8" />
-                    </div>
-                    <div className="text-center space-y-1">
-                        <h3 className="text-lg font-semibold text-white">Reddit</h3>
-                        <p className="text-sm text-zinc-500">Fetch viral posts from subreddits</p>
-                    </div>
-                </button>
+                <div onClick={() => setSelectedSource('reddit')} className="cursor-pointer group">
+                    <GlowCard glowColor="orange" customSize={true} className="h-80 w-full">
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
+                            <div className="h-20 w-20 flex items-center justify-center bg-orange-500/10 rounded-2xl group-hover:bg-orange-500/20 text-orange-400 transition-colors group-hover:scale-110 duration-300">
+                                <MessageSquare className="w-10 h-10" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-foreground tracking-tight">Reddit</h3>
+                                <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Fetch viral posts from subreddits</p>
+                            </div>
+                        </div>
+                    </GlowCard>
+                </div>
 
                 {/* Custom Text */}
-                <button
-                    onClick={() => setSelectedSource('text')}
-                    className="group flex flex-col items-center justify-center gap-4 p-8 h-64 bg-zinc-900/40 border border-white/5 hover:border-zinc-500/50 hover:bg-zinc-900 rounded-2xl transition-all"
-                >
-                    <div className="p-4 bg-zinc-500/10 rounded-full group-hover:bg-zinc-500/20 text-zinc-400 transition-colors">
-                        <Type className="w-8 h-8" />
-                    </div>
-                    <div className="text-center space-y-1">
-                        <h3 className="text-lg font-semibold text-white">Custom Text</h3>
-                        <p className="text-sm text-zinc-500">Paste your own script or story</p>
-                    </div>
-                </button>
+                <div onClick={() => setSelectedSource('text')} className="cursor-pointer group">
+                    <GlowCard glowColor="purple" customSize={true} className="h-80 w-full">
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
+                            <div className="h-20 w-20 flex items-center justify-center bg-purple-500/10 rounded-2xl group-hover:bg-purple-500/20 text-purple-400 transition-colors group-hover:scale-110 duration-300">
+                                <Type className="w-10 h-10" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-foreground tracking-tight">Custom Text</h3>
+                                <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Paste your own script or story</p>
+                            </div>
+                        </div>
+                    </GlowCard>
+                </div>
             </div>
         </div>
     );
