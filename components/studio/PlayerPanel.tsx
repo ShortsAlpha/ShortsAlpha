@@ -82,6 +82,76 @@ export function PlayerPanel({
 
                 el.volume = Math.min(1, Math.max(0, targetVol));
                 el.muted = false;
+
+                // --- FACE TRACKING LOGIC ---
+                if (clip.trackingData && containerRef.current) {
+                    const data = clip.trackingData;
+
+                    // --- STABLE STATIC CROP ---
+                    // RE-CALCULATE ALWAYS: Since we reuse the video element for seamless playback,
+                    // we must re-calculate the crop for every clip update (different tracking data).
+                    // Calculating median of a few hundred points is instant.
+
+                    const sortedX = [...data].map(d => d.x).sort((a, b) => a - b);
+                    const medianX = sortedX[Math.floor(sortedX.length / 2)] || 0.5;
+
+                    // Y-Axis Logic (New)
+                    // If no Y data in tracking, fallback to 0.35 (Top Third) not 0.5 (Center)
+                    const sortedY = [...data].map(d => d.y).filter(y => y !== undefined && y !== null).sort((a, b) => a - b);
+                    const medianY = sortedY.length > 0 ? sortedY[Math.floor(sortedY.length / 2)] : 0.35;
+
+                    const staticFaceX = medianX;
+                    const staticFaceY = medianY;
+
+                    // User Preference: "Pull to far left/right"
+                    // Hard Snap Logic:
+                    // If Face < 0.5 (Left) -> Snap to 0% (Far Left)
+                    // If Face >= 0.5 (Right) -> Snap to 100% (Far Right)
+                    // Adding a small buffer zone in center if needed, but "Far Left/Right" implies 0/100.
+
+                    // STABLE AI FOCUS: Use the detected median face position
+                    // No force snapping.
+                    const percentX = Math.max(0, Math.min(100, staticFaceX * 100));
+                    const percentY = Math.max(0, Math.min(100, staticFaceY * 100));
+
+                    // Apply Static Object Position (X and Y)
+                    el.style.objectPosition = `${percentX.toFixed(1)}% ${percentY.toFixed(1)}%`;
+
+                    // SMART ZOOM: Set Transform Origin to the face position
+                    // This ensures that when we scale up, we zoom INTO the face, not the center of the video.
+                    el.style.transformOrigin = `${percentX.toFixed(1)}% ${percentY.toFixed(1)}%`;
+
+                    // Ensure object-fit is cover
+                    if (el.style.objectFit !== 'cover') el.style.objectFit = 'cover';
+
+                    // Apply Scale/Rotation
+                    el.style.transform = `scale(${clip.scale ?? 1}) rotate(${clip.rotation ?? 0}deg)`;
+
+                    // --- DEBUG TEXT OVERLAY ---
+                    let debugOverlay = el.parentElement?.querySelector(`.debug-overlay-${clip.id}`);
+                    if (!debugOverlay) {
+                        debugOverlay = document.createElement('div');
+                        debugOverlay.className = `debug-overlay debug-overlay-${clip.id}`;
+                        debugOverlay.style.cssText = `
+                            position: absolute;
+                            top: 10px;
+                            left: 10px;
+                            color: red;
+                            background: rgba(0,0,0,0.5);
+                            padding: 2px 5px;
+                            font-size: 12px;
+                            z-index: 10;
+                            pointer-events: none;
+                        `;
+                        el.parentElement?.appendChild(debugOverlay);
+                    }
+                    debugOverlay.textContent = `Focus: ${percentX.toFixed(1)}% ${percentY.toFixed(1)}%`;
+
+                    // Debug Log (Throttled)
+                    if (Math.random() < 0.01) {
+                        console.log(`[Static Focus] Track ${clip.trackIndex}: ${percentX.toFixed(1)}%`);
+                    }
+                }
             }
         });
 
@@ -309,6 +379,15 @@ export function PlayerPanel({
         };
     }, [draggingElement, textTracks, activeVideoClips, onUpdateTextTracks, onUpdateClip]);
 
+    const [showDebug, setShowDebug] = useState(false);
+
+    // Toggle Debug with 'D' key
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => { if (e.key === 'd') setShowDebug(s => !s); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
+
     return (
         <div
             ref={containerRef}
@@ -320,7 +399,13 @@ export function PlayerPanel({
                     const trackIdx = clip.trackIndex || 0;
                     if (videoTrackState[trackIdx]?.hidden) return null;
 
-                    const mk = `${clip.id}-${clip.url}`;
+                    // SEAMLESS PLAYBACK FIX:
+                    // We use URL + TrackIndex as the key. 
+                    // This way, when we switch from "Cut 1" to "Cut 2" (same video, same track), 
+                    // React REUSES the <video> element and just updates the internal style/crop.
+                    // This prevents unmounting/black frames/buffering gaps.
+                    // We rely on the `useEffect` to handle 'time sync' if needed, but for continuous cuts it will just keep playing.
+                    const mk = `seamless-${clip.url}-${trackIdx}`;
 
                     // Logic to handle Split Screen / Custom Layouts
                     // If style has explicit width/height/x/y, use valid CSS positioning
@@ -334,25 +419,24 @@ export function PlayerPanel({
                         return `${val}px`;
                     };
 
-                    const layoutStyle: React.CSSProperties = {
+                    // Refactored Layout Logic: Split Wrapper (Position/Size) and Inner (Scale/Rotate)
+                    const wrapperStyle: React.CSSProperties = {
                         zIndex: index,
-                        willChange: 'transform',
-                        // If explicit width/height exist, use them. Otherwise default to full 100%
                         width: styleProps.width ? getUnitVal(styleProps.width) : '100%',
                         height: styleProps.height ? getUnitVal(styleProps.height) : '100%',
-                        // If explicit X/Y, use top/left. Otherwise inset-0
                         top: getUnitVal(styleProps.y),
                         left: getUnitVal(styleProps.x),
                         position: 'absolute',
+                        overflow: 'hidden', // CLIP ZOOM
+                        transform: `translate3d(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px, 0)`
+                    };
 
-                        // Transform applies ON TOP of layout (e.g. user drag offset from timeline tool)
-                        // But if we are in split mode, 'positionX/Y' might be 0. 
-                        // Note: clip.positionX is the "dragged" offset. clip.style is the "base" layout.
-                        transform: `
-                             scale(${clip.scale ?? 1}) 
-                             translate3d(${clip.positionX ?? 0}px, ${clip.positionY ?? 0}px, 0) 
-                             rotate(${clip.rotation ?? 0}deg)
-                         `
+                    const innerStyle: React.CSSProperties = {
+                        width: '100%',
+                        height: '100%',
+                        willChange: 'transform',
+                        // Scale/Rotate applies to content only
+                        transform: `scale(${clip.scale ?? 1}) rotate(${clip.rotation ?? 0}deg)`
                     };
 
                     const isImage = clip.type === 'image' ||
@@ -381,6 +465,8 @@ export function PlayerPanel({
                                     key = key.substring(key.indexOf('stock/'));
                                 } else if (key.includes('uploads/')) {
                                     key = key.substring(key.indexOf('uploads/'));
+                                } else if (key.includes('auto_shorts/')) {
+                                    key = key.substring(key.indexOf('auto_shorts/'));
                                 }
                             }
 
@@ -394,35 +480,56 @@ export function PlayerPanel({
 
                     return (
                         <React.Fragment key={mk}>
-                            {isImage ? (
-                                <img
-                                    ref={(el) => { if (el) videoRefs.current[clip.id] = el as any; }}
-                                    src={clip.url}
-                                    onMouseDown={(e) => handleElementMouseDown(e, clip)}
-                                    // Pointer events passed
-                                    className={`absolute object-contain cursor-move transition-transform duration-75 ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
-                                    style={layoutStyle}
-                                    alt="Visual Asset"
-                                    onError={(e) => console.warn("Image Load Error:", clip.id, clip.url)}
-                                />
-                            ) : clip.type === 'video' ? (
-                                <video
-                                    ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
-                                    src={videoSrc + "#t=0.001"}
-                                    onMouseDown={(e) => handleElementMouseDown(e, clip)}
-                                    preload="metadata"
-                                    // Pointer events passed
-                                    className={`absolute object-cover cursor-move transition-transform duration-75 ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
-                                    style={layoutStyle}
-                                    loop={false}
-                                    playsInline
-                                    crossOrigin="anonymous"
-                                    muted={false}
-                                    onError={(e) => {
-                                        console.error("Video Error:", clip.id, clip.url, e.currentTarget.error);
-                                    }}
-                                />
-                            ) : null}
+                            <div
+                                onMouseDown={(e) => handleElementMouseDown(e, clip)}
+                                className={`absolute cursor-move ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
+                                style={wrapperStyle}
+                            >
+                                {isImage ? (
+                                    <img
+                                        ref={(el) => { if (el) videoRefs.current[clip.id] = el as any; }}
+                                        src={clip.url}
+                                        className="w-full h-full object-contain transition-transform duration-75"
+                                        style={innerStyle}
+                                        alt="Visual Asset"
+                                        onError={(e) => console.warn("Image Load Error:", clip.id, clip.url)}
+                                    />
+                                ) : clip.type === 'video' ? (
+                                    <video
+                                        ref={(el) => { if (el) videoRefs.current[clip.id] = el; }}
+                                        src={videoSrc + "#t=0.001"}
+                                        preload="metadata"
+                                        className="w-full h-full object-cover transition-transform duration-75"
+                                        style={innerStyle}
+                                        loop={false}
+                                        playsInline
+                                        crossOrigin="anonymous"
+                                        muted={false}
+                                        onError={(e) => {
+                                            // Fallback to direct URL if proxy fails
+                                            const v = e.currentTarget;
+                                            if (v.src.includes('/api/video-proxy') && clip.url) {
+                                                console.warn("Proxy failed, falling back to direct URL:", clip.id);
+                                                v.src = clip.url;
+                                                return;
+                                            }
+                                            console.error("Video Error:", clip.id, clip.url, v.error);
+                                        }}
+                                    />
+                                ) : null}
+                            </div>
+
+
+                            {/* Tracking Debug Overlay */}
+                            {showDebug && clip.type === 'video' && (
+                                <div className="absolute top-2 left-2 bg-black/80 text-green-400 text-xs p-1 z-50 pointer-events-none font-mono">
+                                    Track: {clip.trackIndex}<br />
+                                    HasData: {clip.trackingData ? 'YES' : 'NO'}<br />
+                                    StaticX: {videoRefs.current[clip.id]?.dataset.staticFocus || 'N/A'}<br />
+                                    ObjPos: {videoRefs.current[clip.id]?.style.objectPosition || 'N/A'}
+                                </div>
+                            )}
+
                         </React.Fragment>
                     );
                 })

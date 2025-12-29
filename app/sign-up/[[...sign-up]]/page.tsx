@@ -1,29 +1,35 @@
-import { SignUp, SignedIn, SignedOut, UserButton, SignOutButton } from "@clerk/nextjs";
+"use client";
+
+import { useAuth } from "@clerk/nextjs";
+import { AuthComponent } from "@/components/ui/sign-in-flo";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6">
-            <SignedIn>
-                <div className="text-center space-y-4">
-                    <p className="text-xl font-medium text-white">You are already logged in!</p>
-                    <div className="flex justify-center">
-                        <UserButton showName />
-                    </div>
-                    <div className="pt-4 flex flex-col gap-3">
-                        <a href="/studio" className="bg-white text-black px-6 py-2 rounded-lg font-bold hover:bg-zinc-200 transition-colors w-full">
-                            Go to Studio
-                        </a>
-                        <SignOutButton>
-                            <button className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-6 py-2 rounded-lg font-medium transition-colors text-sm">
-                                Sign Out
-                            </button>
-                        </SignOutButton>
-                    </div>
-                </div>
-            </SignedIn>
-            <SignedOut>
-                <SignUp forceRedirectUrl="/studio" />
-            </SignedOut>
-        </div>
-    );
+    const { isLoaded, userId } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isLoaded && userId) {
+            router.replace("/studio");
+        }
+    }, [isLoaded, userId, router]);
+
+    if (!isLoaded) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (userId) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    return <AuthComponent initialMode="signup" />;
 }

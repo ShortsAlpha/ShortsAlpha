@@ -39,6 +39,7 @@ export interface Track {
     y?: number;
     rotation?: number;
     scale?: number;
+    trackingData?: { t: number, x: number }[];
 }
 
 interface HistoryState {
@@ -104,6 +105,61 @@ export function StudioView({ analysisResult, onBack, importedAssets }: StudioVie
                 setVideoTracks(tracks);
                 setUserAssets(prev => [...prev, ...assets]);
                 setDuration(Math.max(userVideo.duration || 15, gamePlay.duration || 15));
+            }
+            return;
+        }
+
+        // --- HANDLE AUTO SHORTS MODE ---
+        if (analysisResult?.metadata?.projectType === 'auto_shorts') {
+            if (hasInitializedSplitScreen.current) return;
+
+            const { mainVideo } = analysisResult.metadata;
+            if (mainVideo) {
+                hasInitializedSplitScreen.current = true;
+
+                // MULTI-CAM UPDATE: Check for multiCamTracks array first
+                const multiCam = analysisResult.metadata.multiCamTracks;
+                let tracks: Track[] = [];
+                let assets: any[] = [];
+
+                if (multiCam && Array.isArray(multiCam) && multiCam.length > 0) {
+                    // Multi-Cam Mode: Use the provided tracks
+                    tracks = multiCam;
+                    // Create Assets for unique URLs (usually same URL)
+                    const seenUrls = new Set();
+                    multiCam.forEach(t => {
+                        if (!seenUrls.has(t.url)) {
+                            seenUrls.add(t.url);
+                            assets.push({
+                                id: `asset_${Date.now()}_${t.id}`,
+                                key: t.url,
+                                url: t.url,
+                                type: 'video',
+                                LastModified: new Date(),
+                                Size: 0
+                            });
+                        }
+                    });
+                } else {
+                    // Legacy Single Track Mode
+                    tracks = [mainVideo];
+                    assets = [
+                        {
+                            id: `asset_${Date.now()}_main`,
+                            key: mainVideo.url,
+                            url: mainVideo.url,
+                            type: 'video',
+                            LastModified: new Date(),
+                            Size: 0
+                        }
+                    ];
+                }
+
+                setVideoTracks(tracks);
+                setUserAssets(prev => [...prev, ...assets]);
+                // Duration must be based on END time (start + duration), not just length
+                const maxDur = tracks.reduce((max, t) => Math.max(max, (t.start || 0) + (t.duration || 0)), 0);
+                setDuration(maxDur || 30);
             }
             return;
         }

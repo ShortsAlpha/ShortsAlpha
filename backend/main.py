@@ -1,15 +1,21 @@
 import modal
-from modal import web_endpoint
+from modal import App, Image, Secret, asgi_app, web_endpoint
 from pydantic import BaseModel
 import os
+# import cv2 # MOVED TO LOCAL SCOPE
+# import numpy as np # MOVED TO LOCAL SCOPE
+from fastapi import UploadFile, File, Form
 
 # Modal Image Definition
 # We use standard system fonts for image build, but EMBED custom fonts explicitly.
 # ORDER MATTERS: run_commands must happen BEFORE add_local_file
 image = modal.Image.debian_slim() \
     .apt_install("ffmpeg", "imagemagick", "fonts-liberation", "fonts-dejavu", "fontconfig", "fonts-freefont-ttf", "fonts-roboto", "fonts-lato", "fonts-open-sans", "wget", "curl", "ca-certificates") \
-    .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy==1.0.3", "edge-tts") \
-    .run_commands("sed -i 's/rights=\"none\" pattern=\"@\\*\"/rights=\"read|write\" pattern=\"@*\"/' /etc/ImageMagick-6/policy.xml") \
+    .pip_install("google-generativeai", "requests", "ffmpeg-python", "fastapi", "boto3", "moviepy==1.0.3", "imageio==2.33.1", "opencv-python-headless", "numpy<2", "mediapipe", "edge-tts", "python-multipart") \
+    .run_commands(
+        "sed -i 's/rights=\"none\" pattern=\"@\\*\"/rights=\"read|write\" pattern=\"@*\"/' /etc/ImageMagick-6/policy.xml",
+        "wget -O /root/haarcascade_frontalface_default.xml https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml"
+    ) \
     .add_local_file("backend/fonts/Anton-Regular.ttf", "/root/fonts/Anton-Regular.ttf") \
     .add_local_file("backend/fonts/BebasNeue-Regular.ttf", "/root/fonts/BebasNeue-Regular.ttf") \
     .add_local_file("backend/fonts/Montserrat-Bold.ttf", "/root/fonts/Montserrat-Bold.ttf") \
@@ -138,11 +144,15 @@ def generate_subtitles_logic(request_data: dict):
         from moviepy.audio.io.AudioFileClip import AudioFileClip
         from moviepy.audio.compositing.CompositeAudioClip import CompositeAudioClip
 
+        from moviepy.audio.compositing.CompositeAudioClip import CompositeAudioClip
+
     import os
     import requests
     import json
     import google.generativeai as genai
     import time
+    # Note: cv2/numpy not strictly needed for subtitles, but if referenced ensure import
+    
     
     video_tracks = request_data.get('video_tracks', [])
     audio_tracks = request_data.get('audio_tracks', [])
@@ -176,126 +186,125 @@ def generate_subtitles_logic(request_data: dict):
     audio_clips = []
     debug_logs = []
     
-    # 1. Extract Audio from Video Tracks
-    for idx, track in enumerate(video_tracks):
-        url = track.get('url') or track.get('src')
-        if not url: continue
-        path = download_asset(url, f"vid_{idx}")
-        if not path: continue
-
-        # Skip images (Extension check)
-        if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif')):
-            print(f"Skipping image {path} for content analysis")
-            continue
-        
-        try:
-            # Safer way to get audio from video using MoviePy 1.0.3
-            from moviepy.editor import VideoFileClip
-            video_clip = VideoFileClip(path)
-            if video_clip.audio is None:
-                print(f"Warning: Video {idx} has no audio stream.")
-                video_clip.close()
-                continue
-                
-            clip = video_clip.audio
-            
-            start = track.get('start', 0)
-            duration = track.get('duration', 0)
-            offset = track.get('offset', 0)
-            
-            # Apply offset
-            if offset > 0:
-                clip = clip.subclip(offset, clip.duration)
-            
-            # Apply duration
-            if duration > 0:
-                 # Ensure we don't exceed clip duration taking offset into account
-                 if duration < clip.duration:
-                    clip = clip.subclip(0, duration)
-                
-            clip = clip.set_start(start) # MoviePy 1.0.3 uses set_start, not with_start
-            
-            vol = track.get('volume', 1.0)
-            clip = clip.volumex(vol)
-            
-            audio_clips.append(clip)
-            
-        except Exception as e:
-            debug_logs.append(f"Error extracting audio from video {idx}: {str(e)}")
-            print(f"Error extracting audio from video {idx}: {e}")
-
-    # 2. Extract Audio Tracks
-    for idx, track in enumerate(audio_tracks):
-        url = track.get('url')
-        if not url: continue
-        path = download_asset(url, f"aud_{idx}")
-        if not path: continue
-        
-        try:
-            clip = AudioFileClip(path)
-            start = track.get('start', 0)
-            duration = track.get('duration', 0)
-            offset = track.get('offset', 0)
-
-            if offset > 0: clip = clip.subclip(offset, clip.duration)
-            if duration > 0 and duration < clip.duration: clip = clip.subclip(0, duration)
-            
-            clip = clip.set_start(start)
-            clip = clip.volumex(track.get('volume', 1.0))
-            audio_clips.append(clip)
-        except Exception as e:
-             print(f"Error loading audio {idx}: {e}")
-
-    if not audio_clips:
-        return {"status": "error", "message": "No audio found", "debug_logs": debug_logs}
-
-    # 3. Mix
-    print(f"Mixing {len(audio_clips)} audio clips...")
-    final_audio = CompositeAudioClip(audio_clips)
-    output_audio_path = "/tmp/mixed_audio.mp3"
-    final_audio.write_audiofile(output_audio_path, fps=24000, logger=None)
-    
-    # 4. Gemini Transcription
-    print("Uploading to Gemini...")
-    genai.configure(api_key=api_key)
-    
-    audio_file = genai.upload_file(path=output_audio_path)
-    while audio_file.state.name == "PROCESSING":
-        time.sleep(1)
-        audio_file = genai.get_file(audio_file.name)
-        
-    print("Generating Transcript with Gemini 2.5 Pro...")
-    model = genai.GenerativeModel("gemini-2.5-pro") # User specific model request
-    
-    prompt = """
-    Listen to this audio and generate precise subtitles.
-    Return a JSON array of objects.
-    Each object must have:
-    - "start": start time in seconds (float)
-    - "duration": duration in seconds (float)
-    - "text": the spoken text
-    
-    Example:
-    [
-      {"start": 0.5, "duration": 2.0, "text": "Hello world"},
-      {"start": 2.5, "duration": 1.5, "text": "Welcome back"}
-    ]
-    
-    IMPORTANT: 
-    - Adjust timing to match the audio exactly.
-    - If there is silence, do not generate text.
-    - Keep segments short (max 5-6 words) for video captions.
-    """
-    
-    response = model.generate_content([audio_file, prompt])
-    
     try:
-        text = response.text.replace("```json", "").replace("```", "").strip()
-        data = json.loads(text)
-        return {"status": "success", "subtitles": data}
+        # 1. Extract Audio from Video Tracks
+        for idx, track in enumerate(video_tracks):
+            url = track.get('url') or track.get('src')
+            if not url: continue
+            path = download_asset(url, f"vid_{idx}")
+            if not path: continue
+
+            # Skip images
+            if path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif')):
+                continue
+            
+            try:
+                # OPTIMIZATION: Use ffmpeg directly
+                import subprocess
+                track_audio_path = path.replace(".mp4", f"_{idx}.mp3")
+                subprocess.run([
+                    "ffmpeg", "-y", "-i", path, "-vn", "-acodec", "libmp3lame", "-q:a", "4", track_audio_path
+                ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                if not os.path.exists(track_audio_path):
+                     # Fallback to moviepy? Or just skip
+                     print(f"Warning: FFmpeg failed {idx}")
+                     continue
+
+                clip = AudioFileClip(track_audio_path)
+                
+                start = track.get('start', 0)
+                duration = track.get('duration', 0)
+                offset = track.get('offset', 0)
+                
+                if offset > 0: clip = clip.subclip(offset, clip.duration)
+                if duration > 0 and duration < clip.duration: clip = clip.subclip(0, duration)
+                    
+                clip = clip.set_start(start)
+                clip = clip.volumex(track.get('volume', 1.0))
+                audio_clips.append(clip)
+                
+            except Exception as e:
+                debug_logs.append(f"Error extracting audio {idx}: {e}")
+                print(f"Error extracting audio {idx}: {e}")
+
+        # 2. Extract Audio Tracks (Keep existing logic mostly, just indented)
+        for idx, track in enumerate(audio_tracks):
+            url = track.get('url')
+            if not url: continue
+            path = download_asset(url, f"aud_{idx}")
+            if not path: continue
+            try:
+                clip = AudioFileClip(path)
+                start = track.get('start', 0)
+                duration = track.get('duration', 0)
+                offset = track.get('offset', 0)
+                if offset > 0: clip = clip.subclip(offset, clip.duration)
+                if duration > 0 and duration < clip.duration: clip = clip.subclip(0, duration)
+                clip = clip.set_start(start)
+                clip = clip.volumex(track.get('volume', 1.0))
+                audio_clips.append(clip)
+            except Exception as e:
+                 print(f"Error loading audio {idx}: {e}")
+
+        if not audio_clips:
+            return {"status": "error", "message": "No audio found", "debug_logs": debug_logs}
+
+        # 3. Mix
+        print(f"Mixing {len(audio_clips)} audio clips...")
+        final_audio = CompositeAudioClip(audio_clips)
+        output_audio_path = "/tmp/mixed_audio.mp3"
+        final_audio.write_audiofile(output_audio_path, fps=24000, logger=None)
+        
+        # 4. Gemini Transcription
+        print("Uploading to Gemini...")
+        genai.configure(api_key=api_key)
+        
+        audio_file = genai.upload_file(path=output_audio_path)
+        while audio_file.state.name == "PROCESSING":
+            time.sleep(1)
+            audio_file = genai.get_file(audio_file.name)
+            
+        print("Generating Transcript with Gemini 2.5 Pro...")
+        model = genai.GenerativeModel("gemini-2.5-pro") # User explicitly requested this
+        
+        prompt = """
+        Listen to this audio and generate precise subtitles.
+        Return a JSON array of objects.
+        Each object must have:
+        - "start": start time in seconds (float)
+        - "duration": duration in seconds (float)
+        - "text": the spoken word or short phrase
+        
+        IMPORTANT RULES:
+        1. **MAXIMUM 3 WORDS** per segment. Preferably 1-2 words for dynamic "Shorts" style.
+        2. **Precise Timing:** The start/duration must match the spoken word exactly.
+        3. **No Overlap:** Segments must not overlap.
+        
+        Example:
+        [
+          {"start": 0.0, "duration": 0.5, "text": "Hello"},
+          {"start": 0.5, "duration": 0.7, "text": "world today"},
+          {"start": 1.2, "duration": 0.8, "text": "we are live"}
+        ]
+        
+        IMPORTANT: JSON ONLY. No markdown.
+        """
+        
+        response = model.generate_content([audio_file, prompt])
+        
+        try:
+            text = response.text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(text)
+            return {"status": "success", "subtitles": data}
+        except Exception as e:
+            print(f"Gemini Parse Error: {e}")
+            return {"status": "error", "message": str(e), "raw": response.text}
+
     except Exception as e:
-        print(f"Gemini Parse Error: {e}")
-        return {"status": "error", "message": str(e), "raw": response.text}
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": f"Global Error: {str(e)}"}
 
 @app.function(image=image, timeout=3600)  # Embedded fonts, no mount arg needed
 def render_video_logic(request_data: dict, r2_creds: dict):
@@ -1340,3 +1349,256 @@ def cleanup_old_files():
         print(f"Cleanup failed: {e}")
         import traceback
         traceback.print_exc()
+
+@app.function(image=image, timeout=600, cpu=8.0, memory=8192)
+@web_endpoint(method="POST")
+async def analyze_faces(file: UploadFile = File(...)):
+    import tempfile
+    import shutil
+    import os
+    import cv2
+    import mediapipe as mp
+    
+    print(f"Analyzing faces in video: {file.filename}")
+
+    # Save uploaded file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+        shutil.copyfileobj(file.file, temp_video)
+        temp_video_path = temp_video.name
+        
+    try:
+        # Determine if MediaPipe is available (for main thread logging/decision)
+        using_mediapipe = False
+        try:
+            import mediapipe as mp
+            # Just check if we can init the class to set the flag
+            mp_face = mp.solutions.face_detection
+            using_mediapipe = True
+        except:
+            print("MediaPipe not available in main env. Fallback to OpenCV inside thread.")
+            using_mediapipe = False
+
+        # --- HELPER FUNCTIONS FOR PARALLEL EXECUTION ---
+        def _analyze_face_tracking(video_path, use_mp=True):
+            print("THREAD: Starting Face Tracking...")
+            import cv2
+            import mediapipe as mp
+            
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                return {"error": "Could not open video", "tracking": [], "counts": []}
+                
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            duration = frame_count / fps if fps > 0 else 0
+            
+            sample_rate = int(fps) if fps > 0 else 30
+            max_duration_frames = sample_rate * 60 
+            max_frames_to_check = min(frame_count, max_duration_frames) 
+            
+            detected_counts = []
+            print("Starting Face Analysis (Gemini 2.5 Pro Backend - v2)...")
+            tracking_data = []
+            suggested_layout = "focus" # Default Init
+            
+            detector_mp = None
+            detector_cv = None
+            
+            # Initialize Detector
+            try:
+                if use_mp:
+                    mp_face_detection = mp.solutions.face_detection
+                    detector_mp = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+                else:
+                    raise Exception("Force OpenCV")
+            except:
+                use_mp = False
+                haar_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                if os.path.exists("/root/haarcascade_frontalface_default.xml"):
+                    haar_path = "/root/haarcascade_frontalface_default.xml"
+                detector_cv = cv2.CascadeClassifier(haar_path)
+
+            for i in range(0, int(max_frames_to_check), sample_rate):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+                ret, frame = cap.read()
+                if not ret: break
+                
+                # OPTIMIZATION: Resize frame for faster detection
+                try:
+                    h, w = frame.shape[:2]
+                    if w > 640:
+                        scale = 640 / w
+                        frame = cv2.resize(frame, (640, int(h * scale)))
+                except: pass
+                
+                current_time = i / fps
+                count = 0
+                main_face_x = 0.5
+                face_left_x = None
+                face_right_x = None
+                
+                # Defensively init suggested_layout here just in case (though we overwrite it later)
+                # But actually, the error is in the scope of the outer function.
+                # So this loop variable doesn't matter.
+                # Let's verify where indentation is.
+                
+        def _analyze_video_with_gemini(video_path, duration_limit):
+            print("THREAD: Starting Gemini Video Analysis (Vision + Audio)...")
+            import google.generativeai as genai
+            import json
+            import os
+            import time
+            
+            GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+            if not GOOGLE_API_KEY:
+                return {"diarization": [], "tracking": []}
+
+            genai.configure(api_key=GOOGLE_API_KEY)
+
+            # Upload Video
+            print("Uploading video to Gemini...")
+            video_file = genai.upload_file(path=video_path)
+            
+            # Wait for processing
+            while video_file.state.name == "PROCESSING":
+                print('.', end='', flush=True)
+                time.sleep(1)
+                video_file = genai.get_file(video_file.name)
+            
+            if video_file.state.name == "FAILED":
+                raise Exception("Gemini Video Processing Failed")
+
+            print("Video Processed. Generating Content...")
+
+            try:
+                # User requested explicit 2.5 Pro
+                model = genai.GenerativeModel('gemini-2.5-pro')
+            except:
+                print("Warning: 2.5 Pro failed, falling back to 1.5 Pro")
+                model = genai.GenerativeModel('gemini-1.5-pro')
+
+            # Prompt asking for BOTH Diarization and Visual Tracking
+            # We ask for visual tracking every 0.5 seconds to keep it dense enough for the UI but light on tokens.
+            prompt = """
+            Analyze this video for two things:
+            1. **Speaker Diarization**: Identify who is speaking and when.
+            2. **Face Tracking**: For every 0.5 seconds, identify the X/Y coordinates of the faces.
+            
+            Return a SINGLE JSON object with two keys: "diarization" and "tracking".
+            
+            Format:
+            {
+              "diarization": [
+                {"start": 0.0, "end": 2.5, "speaker": "A"}, 
+                {"start": 2.5, "end": 5.0, "speaker": "B"}
+              ],
+              "tracking": [
+                {
+                   "t": 0.0,
+                   "left_face": {"x": 0.2, "y": 0.3},
+                   "right_face": {"x": 0.8, "y": 0.3}
+                },
+                {
+                   "t": 0.5,
+                   "left_face": {"x": 0.22, "y": 0.31},
+                   "right_face": {"x": 0.79, "y": 0.29}
+                }
+              ]
+            }
+            
+            Rules:
+            - 'x' and 'y' should be normalized coordinates (0.0 to 1.0).
+            - If a face is missing, omit the key (e.g. if only left face is visible, do not include 'right_face').
+            - 'left_face' is the person visually on the left side of the screen.
+            - 'right_face' is the person visually on the right side of the screen.
+            - Provide tracking data every 0.5 seconds.
+            """
+            
+            response = model.generate_content(
+                [prompt, video_file],
+                generation_config={"response_mime_type": "application/json"}
+            )
+            
+            try:
+                data = json.loads(response.text)
+                
+                # Transform to our backend format
+                # Backend expects flat format: { t, x, y, left, left_y, right, right_y }
+                final_tracking = []
+                for item in data.get('tracking', []):
+                    entry = {
+                        "t": item.get('t', 0),
+                        "x": 0.5, # Default Center if needed
+                        "y": 0.35
+                    }
+                    
+                    # Map Left
+                    if 'left_face' in item:
+                        entry['left'] = item['left_face']['x']
+                        entry['left_y'] = item['left_face']['y']
+                        
+                    # Map Right
+                    if 'right_face' in item:
+                        entry['right'] = item['right_face']['x']
+                        entry['right_y'] = item['right_face']['y']
+                        
+                    # Calculate Global main face (simple logic: whoever is speaking? or just generic average?)
+                    # For now, let's just leave main x/y as center fallback unless we have a single face.
+                    
+                    final_tracking.append(entry)
+                    
+                return {
+                    "diarization": data.get('diarization', []),
+                    "tracking": final_tracking
+                }
+                
+            except Exception as e:
+                print(f"Gemini Analysis Failed: {e} \nRow Response: {response.text}")
+                return {"diarization": [], "tracking": []}
+
+        # Run Gemini Analysis
+        gemini_result = _analyze_video_with_gemini(temp_video_path, 60)
+        
+        # Extract Results
+        face_tracking = gemini_result.get("tracking", [])
+        diarization_result = gemini_result.get("diarization", [])
+        
+        # Calculate Real Duration using OpenCV
+        import cv2
+        real_duration = 60
+        try:
+             cap = cv2.VideoCapture(temp_video_path)
+             if cap.isOpened():
+                 fps = cap.get(cv2.CAP_PROP_FPS)
+                 frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                 if fps > 0:
+                     real_duration = frames / fps
+             cap.release()
+        except: pass
+        
+        duration = real_duration
+        
+        max_faces_detected = 2 # Assume 2 for podcast mode if Gemini succeeds
+        suggested_layout = "split" if max_faces_detected > 1 else "focus"
+
+        return {
+            "duration": duration,
+            "max_faces_detected": max_faces_detected,
+            "suggested_layout": suggested_layout,
+            "tracking_data": face_tracking,
+            "diarization": diarization_result
+        }
+
+    except Exception as e:
+        print(f"Analysis Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+    finally:
+        # Cleanup
+        if 'cap' in locals() and cap.isOpened(): cap.release()
+        try:
+             if os.path.exists(temp_video_path): os.remove(temp_video_path)
+             if 'audio_path' in locals() and os.path.exists(audio_path): os.remove(audio_path)
+        except Exception as e:
+            print(f"Cleanup Error: {e}")

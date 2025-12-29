@@ -1,11 +1,11 @@
-import { Video, Sparkles, ArrowRight, Wand2, Layers, Lock, Crown } from "lucide-react";
+import { Video, Sparkles, ArrowRight, Wand2, Layers, Lock, Crown, Users } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface DashboardProps {
-    onSelectMode: (mode: 'remix' | 'create' | 'chat' | 'split') => void;
+    onSelectMode: (mode: 'remix' | 'create' | 'chat' | 'split' | 'auto_shorts') => void;
 }
 
 export function Dashboard({ onSelectMode }: DashboardProps) {
@@ -166,6 +166,39 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                     <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
                         <ArrowRight className="w-6 h-6 text-orange-400" />
+                    </div>
+                </button>
+                {/* Option 5: Auto Podcast Shorts (Gated) */}
+                <button
+                    onClick={(e) => isFree ? handleLockedAction(e) : onSelectMode('auto_shorts')}
+                    className={`group relative flex flex-col items-start p-8 h-80 rounded-3xl border transition-all duration-300 overflow-hidden text-left md:col-span-2
+                        ${isFree
+                            ? 'bg-zinc-900/20 border-white/5 opacity-75 hover:opacity-100 hover:border-pink-500/30'
+                            : 'bg-zinc-900/40 border-white/5 hover:border-pink-500/50 hover:bg-zinc-900/60'
+                        }`}
+                >
+                    <div className={`absolute inset-0 bg-gradient-to-br transition-opacity opacity-0 group-hover:opacity-100 
+                        ${isFree ? 'from-pink-500/5' : 'from-pink-500/10'}`} />
+
+                    <div className="flex justify-between w-full">
+                        <div className={`p-4 bg-zinc-800/50 rounded-2xl mb-6 group-hover:scale-110 transition-all duration-300
+                            ${isFree ? 'group-hover:text-pink-400' : 'group-hover:bg-pink-500/20 group-hover:text-pink-400'}`}>
+                            <Users className={`w-8 h-8 text-zinc-300 ${isFree ? 'group-hover:text-pink-400' : 'group-hover:text-pink-400'}`} />
+                        </div>
+                        {isFree && <Lock className="w-6 h-6 text-zinc-500" />}
+                    </div>
+
+                    <div className="relative z-10 space-y-2">
+                        <h2 className={`text-3xl font-bold text-white transition-colors ${isFree ? 'group-hover:text-pink-300' : 'group-hover:text-pink-300'}`}>
+                            Auto Podcast Shorts (Face Crop)
+                        </h2>
+                        <p className="text-zinc-400 group-hover:text-zinc-300 leading-relaxed max-w-xl">
+                            Turn horizontal podcasts into vertical shorts instantly. AI detects faces and auto-crops speakers.
+                        </p>
+                    </div>
+
+                    <div className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
+                        {isFree ? <Crown className="w-6 h-6 text-purple-400" /> : <ArrowRight className="w-6 h-6 text-pink-400" />}
                     </div>
                 </button>
             </div>

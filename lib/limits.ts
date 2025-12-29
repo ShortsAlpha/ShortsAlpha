@@ -25,6 +25,13 @@ export const PLAN_LIMITS = {
         maxResolution: '1080p', // Explicitly 1080p (4k removed/deferred)
         watermark: null,
         priority: true,
+    },
+    admin: {
+        maxDailyRenders: 9999,
+        maxMonthlyRenders: 9999,
+        maxResolution: '4k',
+        watermark: null,
+        priority: true,
     }
 } as const;
 

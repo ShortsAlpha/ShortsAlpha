@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Clapperboard, Settings, Home, Video, Sparkles } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { LayoutDashboard, Clapperboard, Settings, Home, Video, Sparkles, Shield } from "lucide-react";
 
 interface SidebarProps {
     activeView: string;
@@ -7,6 +9,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeView, setActiveView }: SidebarProps) {
+    const { user, isLoaded } = useUser();
+    const router = useRouter();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -18,8 +22,26 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
         { id: "studio", label: "Studio", icon: Clapperboard },
         { id: "ai_generation", label: "AI Generation", icon: Sparkles },
         { id: "rendered", label: "Rendered Videos", icon: Video },
-        { id: "stats", label: "Channel Stats", icon: LayoutDashboard }, // Using LayoutDashboard as placeholder for Stats
+        { id: "stats", label: "Channel Stats", icon: LayoutDashboard },
     ];
+
+    // Check for Admin
+    if (isLoaded && user?.publicMetadata?.plan === 'admin') {
+        menuItems.push({ id: "admin", label: "Admin Panel", icon: Shield });
+        // Insert Admin Panel or handle distinct route
+        // Since Sidebar usually handles view switching within "/app", we might need to link to /admin directly
+        // But here we are using `setActiveView` which implies client-side view switching.
+        // However, /admin is a separate page file. 
+        // Let's verify Sidebar context. It seems Sidebar controls views in /studio?
+        // No, Sidebar is in layout or page? checking file...
+        // Sidebar is used in `app/(main)/layout.tsx` ? No, likely used in Dashboard or new Layout.
+        // Wait, the user asked for an "Admin Panel". The Sidebar seems to switch "views" inside a main container.
+        // If I add "admin", I either need a view for it OR a link.
+        // Let's add it as a link-like button or verify if we can switch to "admin" view.
+        // Actually, I made `app/(main)/admin/page.tsx` which is a route.
+        // The Sidebar items use `setActiveView`.
+        // Let's check `Sidebar` usage source.
+    }
 
     if (!mounted) return null;
 
@@ -39,7 +61,13 @@ export function Sidebar({ activeView, setActiveView }: SidebarProps) {
                     return (
                         <button
                             key={item.id}
-                            onClick={() => setActiveView(item.id)}
+                            onClick={() => {
+                                if (item.id === 'admin') {
+                                    router.push('/admin');
+                                } else {
+                                    setActiveView(item.id);
+                                }
+                            }}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                                 ? "bg-indigo-600/10 text-indigo-400 shadow-lg shadow-indigo-900/20 ring-1 ring-indigo-500/20"
                                 : "text-zinc-500 hover:bg-zinc-900 hover:text-zinc-200"
