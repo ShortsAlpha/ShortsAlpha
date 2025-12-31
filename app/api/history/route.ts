@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, BUCKET_NAME } from "@/lib/s3Client";
+import { auth } from "@clerk/nextjs/server";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const { userId } = await auth();
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
         // List objects in 'processed/' prefix
         const listCommand = new ListObjectsV2Command({
@@ -20,9 +26,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json([]);
         }
 
-        // Filter: Last 24h AND ends with _result.json
+        // Filter: Last 48h AND ends with _result.json
         const recentResults = listResponse.Contents.filter(obj => {
-            const isRecent = obj.LastModified && obj.LastModified > oneDayAgo;
+            const isRecent = obj.LastModified && obj.LastModified > twoDaysAgo;
             const isResultFile = obj.Key?.endsWith("_result.json");
             return isRecent && isResultFile;
         });
@@ -60,8 +66,10 @@ export async function GET(request: NextRequest) {
             }
         }));
 
-        // Filter out failed fetches
-        const validItems = historyItems.filter(item => item !== null);
+        // Filter out failed fetches AND ensure belongs to user
+        const validItems = historyItems
+            .filter(item => item !== null)
+            .filter((item: any) => item.userId === userId);
 
         return NextResponse.json(validItems);
 

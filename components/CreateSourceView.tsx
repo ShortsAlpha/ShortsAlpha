@@ -6,7 +6,7 @@ import { AIStorySource } from "./sources/AIStorySource";
 import { RedditSource } from "./sources/RedditSource";
 import { CustomTextSource } from "./sources/CustomTextSource";
 import { VoiceSelector } from "./VoiceSelector";
-import { GlowCard } from "@/components/ui/spotlight-card";
+// import { GlowCard } from "@/components/ui/spotlight-card";
 
 interface CreateSourceViewProps {
     onBack: () => void;
@@ -131,48 +131,42 @@ export function CreateSourceView({ onBack, onScriptGenerated }: CreateSourceView
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* AI Story Generator */}
-                <div onClick={() => setSelectedSource('ai')} className="cursor-pointer group">
-                    <GlowCard glowColor="blue" customSize={true} className="h-80 w-full">
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
-                            <div className="h-20 w-20 flex items-center justify-center bg-indigo-500/10 rounded-2xl group-hover:bg-indigo-500/20 text-indigo-400 transition-colors group-hover:scale-110 duration-300">
-                                <Bot className="w-10 h-10" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-foreground tracking-tight">AI Generator</h3>
-                                <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Generate unique stories from a prompt</p>
-                            </div>
+                <div onClick={() => setSelectedSource('ai')} className="cursor-pointer group h-80 w-full bg-card border border-border rounded-2xl p-4 hover:border-indigo-500/50 hover:bg-accent/50 hover:shadow-lg transition-all relative overflow-hidden">
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
+                        <div className="h-20 w-20 flex items-center justify-center bg-indigo-500/10 rounded-2xl group-hover:bg-indigo-500/20 text-indigo-400 transition-colors group-hover:scale-110 duration-300">
+                            <Bot className="w-10 h-10" />
                         </div>
-                    </GlowCard>
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-foreground tracking-tight">AI Generator</h3>
+                            <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Generate unique stories from a prompt</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Reddit Scraper */}
-                <div onClick={() => setSelectedSource('reddit')} className="cursor-pointer group">
-                    <GlowCard glowColor="orange" customSize={true} className="h-80 w-full">
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
-                            <div className="h-20 w-20 flex items-center justify-center bg-orange-500/10 rounded-2xl group-hover:bg-orange-500/20 text-orange-400 transition-colors group-hover:scale-110 duration-300">
-                                <MessageSquare className="w-10 h-10" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-foreground tracking-tight">Reddit</h3>
-                                <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Fetch viral posts from subreddits</p>
-                            </div>
+                <div onClick={() => setSelectedSource('reddit')} className="cursor-pointer group h-80 w-full bg-card border border-border rounded-2xl p-4 hover:border-orange-500/50 hover:bg-accent/50 hover:shadow-lg transition-all relative overflow-hidden">
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
+                        <div className="h-20 w-20 flex items-center justify-center bg-orange-500/10 rounded-2xl group-hover:bg-orange-500/20 text-orange-400 transition-colors group-hover:scale-110 duration-300">
+                            <MessageSquare className="w-10 h-10" />
                         </div>
-                    </GlowCard>
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-foreground tracking-tight">Reddit</h3>
+                            <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Fetch viral posts from subreddits</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Custom Text */}
-                <div onClick={() => setSelectedSource('text')} className="cursor-pointer group">
-                    <GlowCard glowColor="purple" customSize={true} className="h-80 w-full">
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
-                            <div className="h-20 w-20 flex items-center justify-center bg-purple-500/10 rounded-2xl group-hover:bg-purple-500/20 text-purple-400 transition-colors group-hover:scale-110 duration-300">
-                                <Type className="w-10 h-10" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-foreground tracking-tight">Custom Text</h3>
-                                <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Paste your own script or story</p>
-                            </div>
+                <div onClick={() => setSelectedSource('text')} className="cursor-pointer group h-80 w-full bg-card border border-border rounded-2xl p-4 hover:border-purple-500/50 hover:bg-accent/50 hover:shadow-lg transition-all relative overflow-hidden">
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center relative z-10">
+                        <div className="h-20 w-20 flex items-center justify-center bg-purple-500/10 rounded-2xl group-hover:bg-purple-500/20 text-purple-400 transition-colors group-hover:scale-110 duration-300">
+                            <Type className="w-10 h-10" />
                         </div>
-                    </GlowCard>
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-foreground tracking-tight">Custom Text</h3>
+                            <p className="text-sm text-muted-foreground max-w-[12rem] mx-auto leading-relaxed">Paste your own script or story</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

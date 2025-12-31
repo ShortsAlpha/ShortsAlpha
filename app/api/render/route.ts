@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
 
         const response = await axios.post(modalUrl, {
             ...body,
+            userId: userId, // Pass Auth User ID to Backend
             // Inject Setup Credentials securely
             r2_account_id: process.env.R2_ACCOUNT_ID || body.r2_account_id || "",
             r2_access_key_id: process.env.R2_ACCESS_KEY_ID || body.r2_access_key_id || "",

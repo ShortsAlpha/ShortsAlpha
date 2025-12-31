@@ -122,6 +122,7 @@ class RenderRequest(BaseModel):
     r2_bucket_name: str
     width: int = 1080
     height: int = 1920
+    userId: str = None # Added for History Filtering
 
 
 
@@ -1073,7 +1074,8 @@ def render_video_logic(request_data: dict, r2_creds: dict):
             "key": output_key,
             "script": request_data.get('script', []),
             "summary": summary_text,
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "userId": request_data.get('userId') # Save User ID
         }
         
         print(f"Uploading result manifest to {result_key}...")
@@ -1263,7 +1265,8 @@ def render_video(item: RenderRequest):
         "audio_tracks": item.audio_tracks,
         "text_tracks": item.text_tracks, # Fixed: Forward text_tracks
         "script": item.script,
-        "output_key": item.output_key
+        "output_key": item.output_key,
+        "userId": item.userId # Forward to logic
     }
     
     call = render_video_logic.spawn(request_data, r2_creds)
