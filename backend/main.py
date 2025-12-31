@@ -69,12 +69,37 @@ async def generate_speech(request: TTSRequest):
         rate_pct = int((request.speed - 1.0) * 100)
         rate_str = f"{rate_pct:+d}%"
         
+        # 1. Generate Raw Audio
+        raw_output_filename = f"raw_speech_{uuid.uuid4()}.mp3"
+        raw_output_file = f"/tmp/{raw_output_filename}"
+        
+        communicate = edge_tts.Communicate(request.text, request.voice, rate=rate_str)
+        await communicate.save(raw_output_file)
+        
+        # 2. Add Silence Padding (0.3s) using FFmpeg to prevent cutoff
+        import subprocess
+        
         output_filename = f"speech_{uuid.uuid4()}.mp3"
         output_file = f"/tmp/{output_filename}"
         
-        communicate = edge_tts.Communicate(request.text, request.voice, rate=rate_str)
-        await communicate.save(output_file)
-        
+        try:
+            # -af apad=pad_dur=0.3 adds 0.3 seconds of silence at the end
+            subprocess.run([
+                "ffmpeg", "-y", "-i", raw_output_file, 
+                "-af", "apad=pad_dur=0.3", 
+                output_file
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Use the processed file if successful
+            if not os.path.exists(output_file):
+                raise Exception("FFmpeg failed to create output file")
+                
+        except Exception as ffmpeg_err:
+            print(f"FFmpeg Padding Failed: {ffmpeg_err}. Using raw file.")
+            # Fallback: copy raw to output logic
+            import shutil
+            shutil.copy(raw_output_file, output_file)
+
         # Get Duration
         from moviepy.editor import AudioFileClip
         try:
@@ -98,8 +123,8 @@ async def generate_speech(request: TTSRequest):
             s3.upload_fileobj(f, request.r2_bucket_name, request.output_key, ExtraArgs={'ContentType': 'audio/mpeg'})
             
         # Cleanup
-        if os.path.exists(output_file):
-            os.remove(output_file)
+        if os.path.exists(raw_output_file): os.remove(raw_output_file)
+        if os.path.exists(output_file): os.remove(output_file)
             
         return {"status": "success", "key": request.output_key, "duration": duration}
 
@@ -1322,7 +1347,7 @@ def cleanup_old_files():
 
         deleted_count = 0
         now = datetime.utcnow()
-        retention_period = timedelta(hours=24) 
+        retention_period = timedelta(hours=48) 
 
         for page in page_iterator:
             if 'Contents' not in page:

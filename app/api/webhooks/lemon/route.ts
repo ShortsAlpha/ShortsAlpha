@@ -65,6 +65,10 @@ export async function POST(req: Request) {
 
         console.log(`[LEMON_WEBHOOK] Updating user ${userId} to plan ${plan} (Variant: ${variantId})`);
 
+        // Derive billing cycle from variant name if possible
+        const variantName = data.attributes.variant_name || '';
+        const billingCycle = variantName.toLowerCase().includes('year') || variantName.toLowerCase().includes('annual') ? 'yearly' : 'monthly';
+
         // Update Clerk Metadata
         const client = await clerkClient();
         await client.users.updateUserMetadata(userId, {
@@ -75,7 +79,11 @@ export async function POST(req: Request) {
                 lemonVariantId: variantId,
                 lemonStatus: data.attributes.status,
                 lemonRenewsAt: data.attributes.renews_at,
-                lemonEndsAt: data.attributes.ends_at
+                lemonEndsAt: data.attributes.ends_at,
+
+                // New fields for dynamic renewal calculation
+                billingCycle: billingCycle,
+                subscriptionDate: data.attributes.created_at
             }
         });
 

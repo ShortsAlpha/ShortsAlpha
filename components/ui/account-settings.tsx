@@ -38,7 +38,37 @@ export function AccountSettings() {
 
     const plan = (user.publicMetadata.plan as string) || 'free';
     const limits = getPlanLimits(plan);
-    const renewsAt = user.publicMetadata.lemonRenewsAt as string;
+    // Dynamic Renewal Calculation
+    const subscriptionDate = (user.publicMetadata.subscriptionDate as string);
+    const billingCycle = (user.publicMetadata.billingCycle as 'monthly' | 'yearly') || 'monthly';
+
+    const calculateNextRenewal = (startDate?: string, cycle: 'monthly' | 'yearly' = 'monthly') => {
+        if (!startDate) return null;
+
+        try {
+            let nextDate = new Date(startDate);
+            const now = new Date();
+
+            if (isNaN(nextDate.getTime())) return null;
+
+            // Loop until future date is found
+            while (nextDate <= now) {
+                if (cycle === 'monthly') {
+                    nextDate.setMonth(nextDate.getMonth() + 1);
+                } else {
+                    nextDate.setFullYear(nextDate.getFullYear() + 1);
+                }
+            }
+            return nextDate.toISOString();
+        } catch (e) {
+            console.error("Date calculation error", e);
+            return null;
+        }
+    };
+
+    // Prioritize calculated date, fall back to stored date
+    const calculatedRenewal = calculateNextRenewal(subscriptionDate, billingCycle);
+    const renewsAt = calculatedRenewal || (user.publicMetadata.lemonRenewsAt as string);
     const status = user.publicMetadata.lemonStatus as string;
 
     const formatDate = (dateStr?: string) => {

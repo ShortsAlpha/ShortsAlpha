@@ -62,16 +62,16 @@ export function RenderedVideos() {
         <div className="animate-in fade-in duration-500">
             <header className="mb-8 flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold text-white mb-2">Rendered Videos</h2>
-                    <p className="text-zinc-500">Your renders from the last 24 hours.</p>
+                    <h2 className="text-3xl font-bold text-foreground mb-2">Rendered Videos</h2>
+                    <p className="text-muted-foreground">Your renders from the last 48 hours.</p>
                 </div>
-                <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-full text-sm text-zinc-400">
+                <div className="bg-muted border border-border px-4 py-2 rounded-full text-sm text-muted-foreground">
                     {videos.length} Videos Found
                 </div>
             </header>
 
             {videos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-zinc-800 rounded-2xl bg-zinc-900/20 text-zinc-500">
+                <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-border rounded-2xl bg-muted/20 text-muted-foreground">
                     <FileVideo className="w-12 h-12 mb-4 opacity-50" />
                     <p className="text-lg font-medium">No videos found</p>
                     <p className="text-sm">Render a video in the Studio to see it here.</p>
@@ -81,7 +81,7 @@ export function RenderedVideos() {
                     {videos.map((vid) => (
                         <div
                             key={vid.key}
-                            className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:border-zinc-700 transition-all group"
+                            className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl hover:border-accent transition-all group"
                         >
                             {/* Video Player */}
                             <div className="aspect-[9/16] bg-black relative group-hover:ring-1 group-hover:ring-indigo-500/50 transition-all">
@@ -112,10 +112,10 @@ export function RenderedVideos() {
                             <div className="p-5">
                                 <div className="flex items-start justify-between mb-4">
                                     <div>
-                                        <h3 className="font-semibold text-white truncate max-w-[200px]" title={vid.summary || "Untitled Video"}>
+                                        <h3 className="font-semibold text-card-foreground truncate max-w-[200px]" title={vid.summary || "Untitled Video"}>
                                             {vid.summary ? (vid.summary.length > 30 ? vid.summary.substring(0, 30) + "..." : vid.summary) : "Untitled Video"}
                                         </h3>
-                                        <div className="flex items-center gap-1 text-xs text-zinc-500 mt-1">
+                                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                                             <Clock className="w-3 h-3" />
                                             <span>
                                                 {vid.lastModified ? new Date(vid.lastModified).toLocaleString() : "Unknown Date"}
@@ -134,7 +134,7 @@ export function RenderedVideos() {
 
                                 {/* Script Snippet (Optional) */}
                                 {vid.script && vid.script.length > 0 && (
-                                    <div className="bg-zinc-950/50 p-3 rounded-lg border border-zinc-800 mb-4 h-20 overflow-y-auto text-xs text-zinc-400">
+                                    <div className="bg-muted/50 p-3 rounded-lg border border-border mb-4 h-20 overflow-y-auto text-xs text-muted-foreground">
                                         <p className="italic">
                                             "{vid.script[0].text}..."
                                         </p>
@@ -148,7 +148,7 @@ export function RenderedVideos() {
                                             e.preventDefault();
                                             const btn = e.currentTarget;
                                             const originalText = btn.innerHTML;
-                                            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Downloading...`;
+                                            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Downloading...`;
 
                                             try {
                                                 const response = await fetch(vid.output_url!);
@@ -176,7 +176,7 @@ export function RenderedVideos() {
                                                 btn.innerHTML = originalText;
                                             }
                                         }}
-                                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors text-sm"
+                                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-colors text-sm"
                                     >
                                         <Download className="w-4 h-4" />
                                         Download Video

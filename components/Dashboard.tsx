@@ -53,6 +53,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                 {/* Option 1: Create From Zero (Always Free) */}
                 <button
+                    id="tour-card-remix"
                     onClick={() => onSelectMode('remix')}
                     className="group relative flex flex-col items-start p-8 h-80 rounded-3xl bg-card border border-border dark:bg-zinc-900/40 dark:border-white/5 hover:border-indigo-500/50 hover:bg-zinc-100 dark:hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left shadow-sm dark:shadow-none"
                 >
@@ -78,6 +79,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                 {/* Option 2: Create Reddit Story (Gated) */}
                 <button
+                    id="tour-card-create"
                     onClick={(e) => isFree ? handleLockedAction(e) : onSelectMode('create')}
                     className={`group relative flex flex-col items-start p-8 h-80 rounded-3xl border transition-all duration-300 overflow-hidden text-left shadow-sm dark:shadow-none
                         ${isFree
@@ -112,6 +114,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                 {/* Option 3: Create Fake Chat (Gated) */}
                 <button
+                    id="tour-card-chat"
                     onClick={(e) => isFree ? handleLockedAction(e) : onSelectMode('chat')}
                     className={`group relative flex flex-col items-start p-8 h-80 rounded-3xl border transition-all duration-300 overflow-hidden text-left shadow-sm dark:shadow-none
                         ${isFree
@@ -146,6 +149,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
 
                 {/* Option 4: Split Gameplay (Always Free for now) */}
                 <button
+                    id="tour-card-split"
                     onClick={() => onSelectMode('split')}
                     className="group relative flex flex-col items-start p-8 h-80 rounded-3xl bg-card border border-border dark:bg-zinc-900/40 dark:border-white/5 hover:border-orange-500/50 hover:bg-zinc-100 dark:hover:bg-zinc-900/60 transition-all duration-300 overflow-hidden text-left shadow-sm dark:shadow-none"
                 >
@@ -170,6 +174,7 @@ export function Dashboard({ onSelectMode }: DashboardProps) {
                 </button>
                 {/* Option 5: Auto Podcast Shorts (Gated) */}
                 <button
+                    id="tour-card-auto_shorts"
                     onClick={(e) => isFree ? handleLockedAction(e) : onSelectMode('auto_shorts')}
                     className={`group relative flex flex-col items-start p-8 h-80 rounded-3xl border transition-all duration-300 overflow-hidden text-left md:col-span-2 shadow-sm dark:shadow-none
                         ${isFree

@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator"
 import { UserProfile } from "@/components/UserProfile"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 
+import { OnboardingTour } from "@/components/OnboardingTour";
+
 export default function MainLayout({
     children,
 }: {
@@ -15,6 +17,7 @@ export default function MainLayout({
 }) {
     return (
         <SidebarProvider>
+            <OnboardingTour />
             <Suspense fallback={null}>
                 <AppSidebar />
             </Suspense>

@@ -92,7 +92,7 @@ export function AppSidebar() {
 
                                 return (
                                     <SidebarMenuItem key={item.title}>
-                                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.title} id={`tour-nav-${item.id}`}>
                                             <Link href={item.url}>
                                                 <item.icon />
                                                 <span>{item.title}</span>
@@ -108,7 +108,7 @@ export function AppSidebar() {
             <SidebarFooter>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton asChild tooltip="Settings" isActive={pathname === "/settings"}>
+                        <SidebarMenuButton asChild tooltip="Settings" isActive={pathname === "/settings"} id="tour-nav-settings">
                             <Link href="/settings">
                                 <Settings />
                                 <span>Settings</span>
